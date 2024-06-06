@@ -40,7 +40,7 @@ class UserPrepare():
         return [deepcopy(self.custom_prompt) if self.custom_prompt else deepcopy(system_prompt)]
 
     async def request_wrap(self, event, transcribed = False) -> None:
-        if is_user(event) or (not is_user(event) and self.command_used == "/transcribe"):
+        if is_user(event) or (not is_user(event) and self.command_used == "/stt"):
             doc = None
             replied = await event.get_reply_message()
             if event.message.media and event.message.media.document:
@@ -163,7 +163,7 @@ class UserPrepare():
                 for api in beauty_list["Whisper"]:
                     self.api = api
                     session = ClientSession()
-                    responseapi = call_api(self, session, type = "transcribe", media_bytes = f.read())
+                    responseapi = call_api(self, session, type = "stt", media_bytes = f.read())
                     response, status = await wait_for(responseapi.__anext__(), 60)
                     if status == "done":
                         return response

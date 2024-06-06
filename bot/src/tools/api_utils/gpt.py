@@ -15,7 +15,7 @@ async def call_api(self, session, type: str = "chat", media_bytes = None):
         async for response, status in request_chat_completion(self, session, headers, f'{api_endpoint}/chat/completions'):
             yield response, status
 
-    elif type == "transcribe":
+    elif type == "stt":
         async for response, status in transcribe_audio(session, headers, endpoint = [f'{openai_style_apis["apis_normal.json"][self.api][0]}/audio/transcriptions', openai_style_apis["apis_normal.json"][self.api][2]], mp3_bytes = media_bytes):
             yield response, status
 

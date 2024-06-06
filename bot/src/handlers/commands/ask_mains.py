@@ -96,7 +96,7 @@ indexer = {
     "/reset": reset_conversation,
     "/select": select,
     "/retry": retry,
-    "/transcribe": ask
+    "/stt": ask
 }
 
 async def gateway(event) -> None:

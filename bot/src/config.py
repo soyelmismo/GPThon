@@ -21,7 +21,7 @@ apisproxy=proxy_raw
 #if apisproxy:
 #    apisproxy = next(iter(apisproxy.values()))
 
-xmr = "4AR9s42pcH4WiFdjkDiqBuUVD8BMRrnstKMXU7EcZNPMDMuErW2Ukwe6WDNf35E8DPLfegRWqmkkKE2mmyUEzS7c32gYRuY"
+logger.info(f"ETH: 0x69b81AaE4e93bC5432dD2eFF320c4B43721419c9")
 
 openai_style_apis = {}
 

@@ -1,4 +1,4 @@
-command_list = ["/ask", "/rol", "/reset", "/select", "/retry", "/transcribe"]
+command_list = ["/ask", "/rol", "/reset", "/select", "/retry", "/stt"]
 
 from bot.src.tools.tg_lib.mini_tools import is_user
 
@@ -13,10 +13,10 @@ async def check(event):
         docc = bool(media and media.document)
 
         if is_user(event):
-            if docc and not command: command = "/transcribe"
+            if docc and not command: command = "/stt"
             if command not in command_list: command = "/ask"
             return True, command
-        elif (not media and command in command_list) or (docc and command == "/transcribe"):
+        elif (not media and command in command_list) or (docc and command == "/stt"):
             return True, command
         else:
             return False, command

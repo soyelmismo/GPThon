@@ -12,7 +12,7 @@ async def post_init():
     logger.info("Adding commands...")
     commands_list = [
         types.BotCommand("ask", "💬"),
-        types.BotCommand("transcribe", "🎤"),
+        types.BotCommand("stt", "🎤"),
     ]
     if roleplay_enabled:
         commands_list.append(types.BotCommand("rol", "🔞"))
@@ -33,7 +33,7 @@ def main():
 
     """Start the bot."""
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/ask(@' + escape(bot_data.username) + r')?(\s|$)'))
-    bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/transcribe(@' + escape(bot_data.username) + r')?(\s|$)'))
+    bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/stt(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/rol(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/select(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/retry(@' + escape(bot_data.username) + r')?(\s|$)'))
