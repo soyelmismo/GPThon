@@ -166,3 +166,5 @@ bot/resources/apis/apis_roleplay.json
 docker-compose.yml
 
 .vscode
+
+.pushTest
