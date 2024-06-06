@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  gpthon:
+    container_name: gpthon
+    stdin_open: true
+    tty: true
+    command: python3 -m bot
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      #- ALL_PROXY=http://127.0.0.1:3128
+      - SESSION_NAME=MyBotSession
+      - API_ID=0000000
+      - API_HASH=00000000000000
+      - TELEGRAM_TOKEN=00000000000000

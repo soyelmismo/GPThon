@@ -1,0 +1,3 @@
+{
+    "openai": ["https://api.openai.com/v1", "sk-apikeyHere", "whisper-1"]
+}
