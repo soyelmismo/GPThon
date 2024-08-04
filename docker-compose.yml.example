@@ -12,7 +12,9 @@ services:
       dockerfile: Dockerfile
     environment:
       #- ALL_PROXY=http://127.0.0.1:3128
-      - SESSION_NAME=MyBotSession
+      - SESSION_NAME=GPThon
       - API_ID=0000000
       - API_HASH=00000000000000
       - TELEGRAM_TOKEN=00000000000000
+# get telegram api id and hash from https://my.telegram.org/auth
+# get bot token from https://t.me/BotFather
