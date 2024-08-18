@@ -19,7 +19,8 @@ async def post_init():
     
     commands_list.extend([types.BotCommand("select", "🖕"),
             types.BotCommand("retry", "🔄"),
-            types.BotCommand("reset", "⏮️"),]
+            types.BotCommand("reset", "⏮️"),
+            types.BotCommand("burnme", "🔥"),]
     )
 
     create_task(bot(functions.bots.SetBotCommandsRequest(
@@ -38,6 +39,7 @@ def main():
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/select(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/retry(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/reset(@' + escape(bot_data.username) + r')?(\s|$)'))
+    bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/burnme(@' + escape(bot_data.username) + r')?(\s|$)'))
     bot.add_event_handler(gateway, events.NewMessage(pattern = '(?s)^(?!/).*$'))
     bot.loop.run_until_complete(post_init())
     

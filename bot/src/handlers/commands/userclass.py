@@ -11,6 +11,7 @@ from bot.src.tools.api_utils.gpt import beauty_list
 from bot.src.logs import logger
 from time import time
 from copy import deepcopy
+from json import dumps
 
 
 #score = {api: [0, 0] for api in beauty_list}
@@ -31,7 +32,20 @@ class UserPrepare():
         self.persist_memory = True
         self.custom_prompt = False
         self.answer_stt = False
+        self.temperature = 1
+        self.top_p = 1
+        self.frequency_penalty = 0
+        self.presence_penalty = 0
+        self.max_tokens = 2048
+        self.randomizer = False
         self.conversation = [deepcopy(system_prompt)]
+
+    def to_string(self):
+        lines = []
+        for key, value in vars(self).items():
+            if key in ["conversation", "command_used"]: continue
+            lines.append(f'{key}: {value!r}')
+        return '\n'.join(lines[:-1]) + '\n'
 
     def is_pending(self):
         return self.pending
@@ -82,7 +96,7 @@ class UserPrepare():
                 self.conversation.append({"role": "user", "content": self.prompt})
         else:
             self.prompt = transcription
-        logger.info(self.conversation)
+        logger.debug(self.conversation)
 
         self.pending = True
         old_text = ""
@@ -134,7 +148,7 @@ class UserPrepare():
                 break  # break the outer loop if we successfully finished the inner loop
             except Exception as e:
                 #score[api][1] += 1
-                print(f"Error with {api}: {e}")
+                logger.error(f"Error with {api}: {e}")
                 continue  # continue to the next API if there was an error
         else:
             await event.client.edit_message(entity = event.chat_id, message = wait_message, text = 'Generation not possible...')

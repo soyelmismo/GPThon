@@ -3,6 +3,8 @@ beauty_list = {"False": list(openai_style_apis['apis_normal.json'].keys()), "Tru
 
 from json import loads
 from bot.src.logs import logger
+from pprint import pprint
+from random import uniform
 
 async def call_api(self, session, type: str = "chat", media_bytes = None):
 
@@ -21,19 +23,22 @@ async def call_api(self, session, type: str = "chat", media_bytes = None):
 
 async def request_chat_completion(self, session, headers, endpoint):
     payload = {
-        "messages": self.conversation,
-        "temperature": 0.1,
-        "top_p": 0.99,
-        "frequency_penalty": 1.0,
-        "presence_penalty": 1.0,
-        #"temperature": uniform(0.1, 2.0),
-        #"top_p": uniform(0.1, 1.0),
-        #"frequency_penalty": uniform(-2.0, 2.0),
-        #"presence_penalty": uniform(-2.0, 2.0),
-        "max_tokens": 2048,
-        "model": self.model,
-        "stream": self.streaming
+            "messages": self.conversation,
+            "max_tokens": self.max_tokens,
+            "model": self.model,
+            "stream": self.streaming
     }
+
+    if not self.randomizer:
+        payload["temperature"] = self.temperature
+        payload["top_p"] = self.top_p
+        payload["frequency_penalty"] = self.frequency_penalty
+        payload["presence_penalty"] = self.presence_penalty
+    else:
+        payload["temperature"] = uniform(0.1, 2.0)
+        payload["top_p"] = uniform(0.1, 1.0)
+        payload["frequency_penalty"] = uniform(-2.0, 2.0)
+        payload["presence_penalty"] = uniform(-2.0, 2.0)
     res_text = ""
     async with session:
         try:
@@ -63,22 +68,25 @@ async def request_chat_completion(self, session, headers, endpoint):
                             matches = chunk.split('data: ')[1:]
                             for match in matches:
                                 if match.startswith("["): continue
-                                chunk = loads(match)
-                                stop = chunk["choices"][0].get("finish_reason", None)
-                                res_text += chunk["choices"][0]["delta"].get("content", "")
+                                try:
+                                    chunk = loads(match)
+                                    stop = chunk["choices"][0].get("finish_reason", None)
+                                    res_text += chunk["choices"][0]["delta"].get("content", "")
 
-                                if response.content.at_eof() or isinstance(stop, str):
-                                    yield res_text, "stop"
-                                    break
-                                else:
-                                    yield res_text, "continue"
+                                    if response.content.at_eof() or isinstance(stop, str):
+                                        yield res_text, "stop"
+                                        break
+                                    else:
+                                        yield res_text, "continue"
+                                except JSONDecodeError:
+                                    continue
                     except Exception as e:
-                        print("Inside iteration:", e)
+                        logger.error("Inside iteration:", e)
                         continue
                 yield res_text, "stop"
                 return
         except Exception as e:
-            print("excepcion", e)
+            logger.error("excepcion", e)
             if len(res_text) < 1:
                 raise ConnectionError(f"Session error, {e}")
             raise ConnectionError(f"Not possible, {e}")

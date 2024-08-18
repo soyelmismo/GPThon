@@ -1,4 +1,4 @@
-command_list = ["/ask", "/rol", "/reset", "/select", "/retry", "/stt"]
+command_list = ["/ask", "/rol", "/reset", "/select", "/retry", "/stt", "/burnme"]
 
 from bot.src.tools.tg_lib.mini_tools import is_user
 

@@ -1,7 +1,7 @@
 import logging
 
 name = "GPT"
-level = logging.DEBUG
+level = logging.INFO
 
 # Configurar el logger
 logger = logging.getLogger(name)
