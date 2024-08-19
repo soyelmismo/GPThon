@@ -16,5 +16,7 @@ services:
       - API_ID=0000000
       - API_HASH=00000000000000
       - TELEGRAM_TOKEN=00000000000000
+      - ERROR_REPORT_CHANNEL_ID=-999999999999
+      - ERROR_REPORT_CHANNEL_THREAD=69420
 # get telegram api id and hash from https://my.telegram.org/auth
 # get bot token from https://t.me/BotFather
