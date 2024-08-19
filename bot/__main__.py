@@ -8,5 +8,5 @@ https://gg.resisto.rodeo/yo/GPThon
 
 if __name__ == '__main__':
     print(SPRITE)
-    logger.info("🤖 0.0.0.1")
+    logger.info("🤖 0.0.0.0.0.0.0.0.1")
     main()

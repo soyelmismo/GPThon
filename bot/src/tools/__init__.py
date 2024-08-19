@@ -1,10 +1,6 @@
 from asyncio import create_task
-from bot.src.constants import bot
+from bot.src.constants import bot, error_report_channel_id as channel, error_report_channel_thread as thread
 from bot.src.logs import logger
-
-channel = -1001650798623
-thread = 3796
-
 
 async def msg(event, text, buttons=None, parse_mode='markdown'):
     try:

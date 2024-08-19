@@ -1,7 +1,11 @@
 from bot.src.config import openai_style_apis
-beauty_list = {"False": list(openai_style_apis['apis_normal.json'].keys()), "True": list(openai_style_apis["apis_roleplay.json"].keys()), "Whisper": [key for key, value in openai_style_apis['apis_normal.json'].items() if len(value) == 3]}
+beauty_list = {
+"False": list(openai_style_apis['apis_normal.json'].keys()),
+"True": list(openai_style_apis["apis_roleplay.json"].keys()),
+"Whisper": [key for key, value in openai_style_apis['apis_normal.json'].items() if len(value) == 3]
+}
 
-from json import loads
+from json import loads, JSONDecodeError
 from bot.src.logs import logger
 from pprint import pprint
 from random import uniform
@@ -53,7 +57,7 @@ async def request_chat_completion(self, session, headers, endpoint):
 
                 if response.status != 200:
                     raise ConnectionError(f"Session response error: {response.text}")
-                logger.debug(f"{self.api}: code {response.status}")
+                logger.debug(f"pre - {self.api}: code {response.status}...")
                 async for chunk in response.content.iter_any():
                     try:
                         chunk = chunk.decode("utf-8")
@@ -62,6 +66,7 @@ async def request_chat_completion(self, session, headers, endpoint):
                             chunk = loads(chunk)
                             res_text += chunk.get("choices", [])[0].get("message", {}).get("content", "") 
                             if len(res_text) > 0:
+                                logger.info(f'post - {self.api}: {response.status} - done ✅')
                                 yield res_text, "stop"
                                 break
                         else:
@@ -74,19 +79,23 @@ async def request_chat_completion(self, session, headers, endpoint):
                                     res_text += chunk["choices"][0]["delta"].get("content", "")
 
                                     if response.content.at_eof() or isinstance(stop, str):
+                                        logger.info(f'post - {self.api}: {response.status} - done ✅')
                                         yield res_text, "stop"
                                         break
                                     else:
                                         yield res_text, "continue"
-                                except JSONDecodeError:
+                                except JSONDecodeError as e:
+                                    logger.error(f"JSONDecodeError: {str(e)}\n\nInvolved chunk: '{chunk}'")
                                     continue
                     except Exception as e:
-                        logger.error("Inside iteration:", e)
+                        logger.error(f"Inside iteration: {str(e)}\n\nInvolved chunk: '{chunk}'")
                         continue
+                logger.warning("OBJECT OUTSIDE OF BOUNDS WTF IS A KILOMETER 🦅🦅🦅")
                 yield res_text, "stop"
                 return
         except Exception as e:
-            logger.error("excepcion", e)
+            e = str(e)
+            logger.error(f"request_chat_completion exception: {e}")
             if len(res_text) < 1:
                 raise ConnectionError(f"Session error, {e}")
             raise ConnectionError(f"Not possible, {e}")

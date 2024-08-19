@@ -12,6 +12,9 @@ env = {key: os.getenv(key).split(',') if os.getenv(key) else [] for key in os.en
 # Variables
 session_name = str(env.get('SESSION_NAME', [''])[0])
 api_id = int(env.get('API_ID', [''])[0])
+error_report_channel_id = int(env.get('ERROR_REPORT_CHANNEL_ID', [''])[0])
+error_report_channel_thread = int(env.get('ERROR_REPORT_CHANNEL_THREAD', [''])[0])
+
 api_hash = str(env.get('API_HASH', [''])[0])
 bot_token = str(env.get('TELEGRAM_TOKEN', [''])[0])
 

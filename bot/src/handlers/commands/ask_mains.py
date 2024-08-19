@@ -2,8 +2,7 @@ from telethon import events
 from bot.src.wrappers.rate_limiter import rate_limit_handler
 from bot.src.handlers.commands.userclass import UserPrepare
 from bot.src.constants import index_user_instances, roleplay_enabled
-from bot.src.tools.tg_lib.mini_tools import get_id
-from bot.src.tools.tg_lib.bot_mention import check as is_bot_mentioned
+from bot.src.tools.tg_lib.mini_tools import get_id, is_bot_mentioned
 from bot.src.logs import logger
 from gc import collect
 
@@ -74,11 +73,11 @@ async def select(event, user_id) -> None:
                 case "model":
                     index_user_instances[user_id].model = str(value)
                 case "memory":
-                    index_user_instances[user_id].persist_memory = booleanus
+                    index_user_instances[user_id].memory = booleanus
                 case "randomizer":
                     index_user_instances[user_id].randomizer = booleanus
                 case "sprompt":
-                    index_user_instances[user_id].custom_prompt = {"role": "system", "content": str(value)}
+                    index_user_instances[user_id].sprompt = {"role": "system", "content": str(value)}
                     await index_user_instances[user_id].delete_conversation()
                 case "status":
                     return await event.reply(f'```\n{index_user_instances[user_id].to_string()}```')
