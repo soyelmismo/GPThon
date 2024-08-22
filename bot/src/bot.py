@@ -19,8 +19,9 @@ async def post_init():
     
     commands_list.extend([types.BotCommand("select", "🖕"),
             types.BotCommand("retry", "🔄"),
+            types.BotCommand("burnme", "🔥"),
             types.BotCommand("reset", "⏮️"),
-            types.BotCommand("burnme", "🔥"),]
+            ]
     )
 
     create_task(bot(functions.bots.SetBotCommandsRequest(

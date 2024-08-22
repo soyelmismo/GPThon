@@ -29,13 +29,14 @@ class UserPrepare():
         self.roleplaying = False
         self.command_used = None
         self.memory = True
-        self.sprompt = False
+        self.sprompt = None
         self.answer_stt = False
         self.temperature = 1
         self.top_p = 1
         self.frequency_penalty = 0
         self.presence_penalty = 0
         self.max_tokens = 2048
+        self.seed = None
         self.randomizer = False
         self.conversation = [deepcopy(master_prompt)]
 
@@ -141,6 +142,10 @@ class UserPrepare():
                         raise ConnectionError(f"Bucle completion: {e}")
 
                 break  # break the outer loop if we successfully finished the inner loop
+            except PermissionError as e:
+                logger.error(e[0])
+                logger.debug(e[1])
+                continue
             except Exception as e:
                 logger.error(f"Error with {self.api}: {str(e)}")
                 continue  # continue to the next API if there was an error

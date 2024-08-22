@@ -30,7 +30,8 @@ async def request_chat_completion(self, session, headers, endpoint):
             "messages": self.conversation,
             "max_tokens": self.max_tokens,
             "model": self.model,
-            "stream": self.streaming
+            "stream": self.streaming,
+            "seed": self.seed
     }
 
     if not self.randomizer:
@@ -52,16 +53,17 @@ async def request_chat_completion(self, session, headers, endpoint):
                 headers=headers,
                 json=payload,
                 raise_for_status=False,
-                ssl=True
+                ssl=True,
+                timeout=5
             ) as response:
-
+                if response.status == 403:
+                    raise PermissionError([f"oof - {self.api}: {response.status} 🫨", f'{response.text}'])
                 if response.status != 200:
                     raise ConnectionError(f"Session response error: {response.text}")
                 logger.debug(f"pre - {self.api}: code {response.status}...")
                 async for chunk in response.content.iter_any():
                     try:
                         chunk = chunk.decode("utf-8")
-
                         if payload.get("stream") == False:
                             chunk = loads(chunk)
                             res_text += chunk.get("choices", [])[0].get("message", {}).get("content", "") 
@@ -93,6 +95,8 @@ async def request_chat_completion(self, session, headers, endpoint):
                 logger.warning("OBJECT OUTSIDE OF BOUNDS WTF IS A KILOMETER 🦅🦅🦅")
                 yield res_text, "stop"
                 return
+        except PermissionError as e:
+            raise PermissionError(e)
         except Exception as e:
             e = str(e)
             logger.error(f"request_chat_completion exception: {e}")

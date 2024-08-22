@@ -5,6 +5,7 @@ from bot.src.constants import index_user_instances, roleplay_enabled
 from bot.src.tools.tg_lib.mini_tools import get_id, is_bot_mentioned
 from bot.src.logs import logger
 from gc import collect
+from hashlib import sha1
 
 
 @rate_limit_handler(5, 60)
@@ -32,7 +33,7 @@ def max_value_param(n):
         
 avail_args = ["streaming", "model", "memory", "sprompt",
 "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens",
-"status", "randomizer"]
+"status", "randomizer", "seed"]
 
 @rate_limit_handler(3, 60)
 async def select(event, user_id) -> None:
@@ -77,10 +78,22 @@ async def select(event, user_id) -> None:
                 case "randomizer":
                     index_user_instances[user_id].randomizer = booleanus
                 case "sprompt":
-                    index_user_instances[user_id].sprompt = {"role": "system", "content": str(value)}
+                    if value == "None":
+                        index_user_instances[user_id].sprompt = None
+                    else:
+                        index_user_instances[user_id].sprompt = {"role": "system", "content": str(value)}
                     await index_user_instances[user_id].delete_conversation()
                 case "status":
                     return await event.reply(f'```\n{index_user_instances[user_id].to_string()}```')
+                case "seed":
+                    if value == "None":
+                        value = None
+                    else:
+                        try:
+                            value = int(value)
+                        except:
+                            value = int(sha1(str(value).encode()).hexdigest(), 16)
+                    index_user_instances[user_id].seed = value
                 case _:
                     await quickres()
                     break
@@ -120,8 +133,8 @@ async def process_check(event):
 
     if not index_user_instances.get(user_id):
         index_user_instances[user_id] = UserPrepare()
-    elif index_user_instances[user_id].is_pending():
-        if event.chat_id == user_id:
+    elif index_user_instances[user_id].is_pending() and command != "/select":
+        if event.chat_id == user_id or mentioned:
             await event.reply("🫸🫨🫷")
         return None
     index_user_instances[user_id].command_used = command
