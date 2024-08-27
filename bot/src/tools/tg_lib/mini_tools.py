@@ -4,7 +4,9 @@ from telethon.types import PeerUser
 
 command_list = ["/ask",
                 #"/rol",
-                "/reset", "/select", "/retry", "/stt", "/burnme", "/vision"
+                "/reset", "/select", "/retry",
+                "/stt", "/burnme", "/vision",
+                "/img"
                 ]
 
 def is_user(event):
@@ -15,7 +17,9 @@ def is_user(event):
 def get_id(event) -> int:
     return event.sender_id if event.sender_id else event.chat_id
 
-async def remove_command(conversation, event, bot_command: str = "", status: int = 0) -> str:
+async def remove_command(conversation, event, bot_command = "", status: int = 0) -> str:
+    if not isinstance(bot_command, str):
+        bot_command = ""
     longrep = f"{bot_command}@{bot_data.username}"
 
     message = event.message.message

@@ -41,6 +41,7 @@ async def post_init():
     commands_list = [
         types.BotCommand("ask", "💬"),
         types.BotCommand("stt", "🎤"),
+        types.BotCommand("img", "🎨"),
         types.BotCommand("vision", "👁️"),
     ]
     #if roleplay_enabled:
@@ -63,9 +64,9 @@ async def post_init():
 def main():
     """Start the bot."""
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/ask(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
+    constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/img(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/vision(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/stt(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
-    constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/rol(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/select(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/retry(@' + escape(constants.bot_data.username) + r')?(\s|$)'))
     constants.bot.add_event_handler(gateway, events.NewMessage(pattern = f'^/reset(@' + escape(constants.bot_data.username) + r')?(\s|$)'))

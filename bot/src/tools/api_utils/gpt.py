@@ -7,19 +7,31 @@ total_tokens = 0
 
 async def call_api(self, type: str = "chat", media=None):
     logger.debug("Initializing OpenAI instance")
+    apiok = self.api if type == "chat" else self.whisper_api if type == "stt" else self.img_api if type == "img" else self.api
     client = OpenAI(
-        api_key=openai_style_apis['apis_normal.json'].get(self.api)[1],
-        base_url=openai_style_apis['apis_normal.json'].get(self.api)[0]
+        api_key=openai_style_apis['apis_normal.json'].get(apiok)[1],
+        base_url=openai_style_apis['apis_normal.json'].get(apiok)[0]
     )
     match type:
         case "chat":
             logger.debug("Joining chat completion")
             async for response, status in request_chat_completion(self, client):
+                if status == "stop":
+                    logger.info(f"📚 - {self.api}.{self.model} ✅")
                 yield response, status
 
         case "stt":
             logger.debug("Joining transcription")
             async for response, status in transcribe_audio(self, media, client):
+                if status == "done":
+                    logger.info(f"🎤 - {self.whisper_api}.{self.whisper_model} ✅")
+                yield response, status
+        
+        case "img":
+            logger.debug("Joining image generation")
+            async for response, status in generate_image(self, client, img_prompt=media):
+                if status != "fail":
+                    logger.info(f"🎨 - {self.img_api}.{self.img_model} ✅")
                 yield response, status
 
 async def request_chat_completion(self, client: OpenAI):
@@ -71,11 +83,8 @@ async def request_chat_completion(self, client: OpenAI):
 
                 yield res_text, "continue"
 
-            
-
-
     except Exception as e:
-        logger.error(f"request_chat_completion exception: {str(e)}")
+        logger.debug(f"request_chat_completion exception: {str(e)}")
         if not res_text:
             raise ConnectionError(f"Session error, {str(e)}")
         raise ConnectionError(f"Not possible, {str(e)}")
@@ -84,7 +93,7 @@ async def transcribe_audio(self, media, client: OpenAI):
     try:
         with open(media, "rb") as f:
             response_data = client.audio.transcriptions.create(
-                model=openai_style_apis["apis_normal.json"][self.api][2],
+                model=self.whisper_model,
                 file=("a.mp3", f.read()),
                 response_format="text"
             )
@@ -98,5 +107,29 @@ async def transcribe_audio(self, media, client: OpenAI):
             yield response_data, "done"
 
     except Exception as e:
-        logger.error(f"transcribe_audio exception: {self.api}: {str(e)}")
+        logger.debug(f"transcribe_audio exception: {self.whisper_api}: {str(e)}")
+        yield "fail", "fail"
+
+async def generate_image(self, client: OpenAI, img_prompt):
+    try:
+        response = client.images.generate(
+            model=self.img_model,
+            prompt=img_prompt,
+            size="1024x1024",
+            quality="hd"
+        )
+        logger.debug(response)
+
+        if not isinstance(response, str):
+            url = response.data[0].url
+            img_prompt = response.data[0].revised_prompt or img_prompt
+            if not url: raise
+        logger.debug(url)
+
+        logger.debug("Received, yielding")
+
+        yield url, img_prompt
+
+    except Exception as e:
+        logger.debug(f"image generation exception: {self.img_api}: {str(e)}")
         yield "fail", "fail"

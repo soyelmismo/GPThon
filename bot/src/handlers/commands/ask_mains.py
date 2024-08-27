@@ -71,11 +71,14 @@ async def select(event, user_id) -> None:
 
                 case "streaming" | "memory" | "randomizer" | "answer_stt":
                     setattr(constants.index_user_instances[user_id], arg, value.lower() == 'true')
-                case "model":
-                    if constants.models_dict and value not in constants.models_dict:
-                        from bot.src.constants import models_txt
-                        return await event.reply(file=models_txt, force_document=True)
-                    constants.index_user_instances[user_id].model = str(value)
+                case "model" | "img_model":
+                    models_dict = constants.models_dict if arg == "model" else constants.img_models
+                    
+                    if models_dict and value not in models_dict:
+                        return await event.reply(file=constants.models_txt if arg == "model" else constants.img_models_txt, force_document=True)
+                    
+                    setattr(constants.index_user_instances[user_id], arg, str(value))
+
                 case "dump":
                     t_convo = ""
                     for item in constants.index_user_instances[user_id].conversation:
@@ -144,7 +147,9 @@ async def process_check(event):
     if not constants.index_user_instances.get(user_id):
         constants.index_user_instances[user_id] = UserPrepare()
     elif constants.index_user_instances[user_id].pending and command != "/select":
-        if event.chat_id == user_id or mentioned:
+        if constants.index_user_instances[user_id].command_used in ["/img"] and constants.index_user_instances[user_id].img_pending:
+            await event.reply("🫵🤬, 🖐️⏳... 🖕.")
+        elif event.chat_id == user_id or mentioned:
             await event.reply("🫸🫨🫷")
         return None
     constants.index_user_instances[user_id].command_used = command
@@ -159,7 +164,8 @@ indexer = {
     "/retry": retry,
     "/burnme": burnme,
     "/stt": ask,
-    "/vision": ask
+    "/vision": ask,
+    "/img": ask,
 }
 
 async def gateway(event) -> None:
@@ -169,7 +175,6 @@ async def gateway(event) -> None:
     callingTo = indexer.get(constants.index_user_instances[user_id].command_used)
     logger.debug(f'calling {constants.index_user_instances[user_id].command_used}')
     if callingTo:
-        async with event.client.action(entity=event.chat_id, action='typing'):
-            await callingTo(event, user_id = user_id)
-            constants.index_user_instances[user_id].command_used = None
+        await callingTo(event, user_id = user_id)
+        constants.index_user_instances[user_id].command_used = None
     raise events.StopPropagation

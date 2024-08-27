@@ -3,6 +3,9 @@ from bot.src.config import api_id, api_hash, bot_token, session_name, error_repo
 
 models_dict = {}
 models_txt = ""
+img_models = {}
+img_models_txt = ""
+whisper_models = {}
 
 bot = TelegramClient(session_name, api_id, api_hash).start(bot_token=bot_token)
 bot.parse_mode = 'md'
