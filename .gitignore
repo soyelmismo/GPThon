@@ -168,3 +168,4 @@ docker-compose.yml
 .vscode
 
 .pushTest
+bot/src/tools/api_utils/model_indexer.py

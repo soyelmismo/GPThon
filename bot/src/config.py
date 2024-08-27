@@ -1,7 +1,7 @@
 import os
-from pathlib import Path
+
 from dotenv import load_dotenv
-from json import load
+
 from bot.src.logs import logger
 
 load_dotenv()
@@ -28,16 +28,7 @@ logger.info(f"ETH: 0x69b81AaE4e93bC5432dD2eFF320c4B43721419c9")
 
 openai_style_apis = {}
 
-basepath = Path(__file__).resolve().parents[1]
-logger.debug(f'Base path: {basepath}')
-apis_files = os.listdir(Path(f'{basepath}/resources/apis'))
-logger.debug(f'apis_files: {basepath}')
-available_api_json_files = [file for file in apis_files if file.endswith(".json")]
-for fetcher in available_api_json_files:
-    with open(basepath / "resources" / "apis" / fetcher, "r", encoding="utf-8") as infile:
-        openai_style_apis[fetcher] = load(infile)
-
-roleplay_enabled = False
-if openai_style_apis.get("apis_roleplay.json"):
-    roleplay_enabled = True
+#roleplay_enabled = False
+#if openai_style_apis.get("apis_roleplay.json"):
+#    roleplay_enabled = True
 

@@ -1,4 +1,4 @@
-aiohttp
 aiolimiter
 telethon
 python-dotenv
+openai

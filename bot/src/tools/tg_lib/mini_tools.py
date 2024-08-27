@@ -2,7 +2,10 @@
 from bot.src.constants import bot_data
 from telethon.types import PeerUser
 
-command_list = ["/ask", "/rol", "/reset", "/select", "/retry", "/stt", "/burnme"]
+command_list = ["/ask",
+                #"/rol",
+                "/reset", "/select", "/retry", "/stt", "/burnme", "/vision"
+                ]
 
 def is_user(event):
     if isinstance(event.message.peer_id, PeerUser):
@@ -33,7 +36,7 @@ async def remove_command(conversation, event, bot_command: str = "", status: int
 
 
 async def is_bot_mentioned(event):
-    if event.message and event.message.mentioned: return True, "/ask"
+    if event.message and event.message.mentioned and not str(event.message.message).startswith("/"): return True, "/ask"
 
     command = str(event.message.message).split(" ")[0].lower().strip()
     if "@" in command:
