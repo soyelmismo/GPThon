@@ -18,5 +18,10 @@ services:
       - TELEGRAM_TOKEN=00000000000000
       - ERROR_REPORT_CHANNEL_ID=-999999999999
       - ERROR_REPORT_CHANNEL_THREAD=69420
+      #- BLACKLIST_CHAT_ID=-1010101010,10101010,-10101
+      #- WHITELIST_CHAT_ID=
+      #- DEFAULT_CHAT_MODEL=gpt-3.5-turbo
+      #- DEFAULT_STT_MODEL=whisper-1
+      #- DEFAULT_IMAGE_MODEL=dall-e-2
 # get telegram api id and hash from https://my.telegram.org/auth
 # get bot token from https://t.me/BotFather

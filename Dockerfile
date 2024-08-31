@@ -9,7 +9,7 @@ COPY requirements.txt /requirements.txt
 # Instalar dependencias
 RUN apk update && \
     apk add --no-cache --virtual .build-deps \
-        py3-pip && \
+        py3-pip rust cargo && \
     apk add --no-cache \
         sox  && \
     pip3 install --no-cache-dir -r requirements.txt && \

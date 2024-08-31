@@ -1,5 +1,5 @@
 from telethon import TelegramClient
-from bot.src.config import api_id, api_hash, bot_token, session_name, error_report_channel_id, error_report_channel_thread#, roleplay_enabled
+from bot.src.config import api_id, api_hash, bot_token, session_name, error_report_channel_id, error_report_channel_thread, roleplay_enabled
 
 models_dict = {}
 models_txt = ""

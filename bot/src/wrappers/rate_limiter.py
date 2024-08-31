@@ -15,7 +15,7 @@ def rate_limit_handler(limit: int, interval: int) -> exec:
             is_command = bool(event.original_update.message and event.original_update.message.entities and isinstance(event.original_update.message.entities[0], types.MessageEntityBotCommand))
 
             if is_command:
-                user_id = get_id(event)
+                user_id = await get_id(event)
                 # Obtener el limitador del diccionario o crear uno nuevo si no existe
                 limiter_key = f"{user_id}_{event.original_update.message.message.split()[0]}"
                 limiter = limiters.get(limiter_key, AsyncLimiter(limit, interval))

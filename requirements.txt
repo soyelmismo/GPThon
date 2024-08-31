@@ -2,3 +2,5 @@ aiolimiter
 telethon
 python-dotenv
 openai
+pillow
+cryptg
