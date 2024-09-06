@@ -4,3 +4,5 @@ python-dotenv
 openai
 pillow
 cryptg
+tiktoken
+# redis
