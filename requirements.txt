@@ -1,4 +1,9 @@
-aiohttp
 aiolimiter
 telethon
 python-dotenv
+openai
+pillow
+cryptg
+tiktoken
+redis
+opencv-python-headless

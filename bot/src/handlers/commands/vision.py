@@ -1,0 +1,34 @@
+from base64 import b64encode
+from . import extract_media
+from bot.src.tools.api_utils.gpt import quick_chat_completion, compress_image, c
+from bot.src.handlers.commands import edit_msg
+from bot.src.tools.videosplit import extract_photos
+
+async def do_vision(self, event, prompt, placeholder_msg, buttons, file_meta: dict):
+    file_meta = await extract_media(event, file_meta)
+    mime_type = file_meta["mime"]
+    image_bytes = file_meta["file"]
+    if mime_type not in c.allowed_image_mimetypes:
+        mime_type = "jpeg"
+    if mime_type == "webm":
+        image_bytes = await extract_photos(file_meta["file"], file_meta["mime"])
+        mime_type = "jpeg"
+        sequence_prompt = "what happens in this sequence of images?\n\n"
+        prompt = f'{sequence_prompt}{prompt}'
+    image_bytes, file_name = await compress_image(image_bytes, file_name=file_meta["name"], mime_type=mime_type, quality=65)
+    file_meta["name"] = file_name
+    doc = f"data:image/{mime_type};base64,{b64encode(image_bytes.getvalue()).decode('utf-8')}"
+    await edit_msg(event, placeholder_msg, "👁️⏳...", buttons)
+    vision_response = await quick_chat_completion(self, self.vision_model, [
+        {"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": doc},
+             "detail": "high"}
+            ]}
+        ], custom_params={"temperature": 0}
+        )
+    if not vision_response:
+        await edit_msg(event, placeholder_msg, "📷😔❌")
+    if vision_response == "Cancelled":
+        return None, file_meta
+    return vision_response, file_meta

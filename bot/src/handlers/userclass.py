@@ -1,0 +1,139 @@
+from json import loads, JSONDecodeError
+from datetime import datetime
+from copy import deepcopy
+
+from bot.src.config import (bot_prompts, command_image, command_stt,default_chat_model, default_img_model, default_vision_model,
+                            text_improve_model)
+from bot.src.handlers import check_media_type
+from bot.src.handlers.commands.stt import stt_wrap
+from bot.src.handlers.commands.img import img_wrap
+from bot.src.handlers.commands.ask import ask_wrap
+
+
+status_blacklist: list = ["conversation",
+                       "whisper_model", "whisper_api",
+                       "img_api", "sysprompt", "user_id",
+                       "user_ids_index",
+                       "owners"
+                    ]
+
+class UserPrepare():
+    def __init__(self) -> None:        
+        self.group_mode: bool = False
+        self.random_names: bool = True
+        self.used_tokens: int = 0
+        self.chat_model: str = default_chat_model
+        self.img_model: str = default_img_model
+        self.improve_model: str = text_improve_model
+        self.vision_model: str = default_vision_model
+        self.streaming: bool = True
+        self.answer_stt: bool = False
+        self.roleplaying: bool = False
+        self.memory: bool = True
+        self.max_tokens: int = 2048
+        self.seed: int | None = None
+        self.temperature: float = 1.0
+        self.top_p: float = 1.0
+        self.frequency_penalty: float = 0.0
+        self.presence_penalty: float = 0.0
+        self.randomizer: bool = False
+        self.sysprompt: str = ""
+        self.user_id: str  = ''
+        self.groups: set = set()
+        self.owners: set = set()
+        self.user_ids_index: dict = dict()
+        self.last_seen: datetime = datetime.now()
+        self.conversation: list[dict] = self.get_custom_sysprompt()
+
+    async def from_dict(self, data):
+        for key, value in data.items():
+            # Deserialize the value from JSON
+            try:
+                value = loads(value)
+                if isinstance(value, dict) and 'type' in value:
+                    data_type = value['type']
+                    value_data = value['value']
+                    match data_type:
+                        case 'set':
+                            value = set(value_data)
+                        case 'bool':
+                            value = bool(value_data)
+                        case 'datetime':
+                            value = datetime.fromisoformat(value_data)
+                        case 'int':
+                            value = int(value_data)
+                        case 'float':
+                            value = float(value_data)
+                        case 'list' | 'dict':
+                            value = loads(value_data)
+                        case 'none':
+                            value = None
+                        case _:
+                            value = value_data
+                else:
+                    value = value
+            except JSONDecodeError:
+                # Handle the case where JSON decoding fails
+                raise ValueError(f"Error decoding JSON for key {key}")
+
+            self.__dict__[key] = value
+
+    def to_string(self):
+        lines = []
+
+        blist = status_blacklist.copy()
+        if self.roleplaying:
+            blist.extend(["chat_model"])
+        if not self.group_mode:
+            blist.extend(["group_mode", "random_names"])
+
+        for key, value in vars(self).items():
+            if key == "groups":
+                value = len(value)
+                if not value:
+                    continue
+            elif key in blist:
+                continue
+            lines.append(f'{key}: {value!r}')
+        return '\n'.join(lines[:-1]) + '\n'
+
+    def get_custom_sysprompt(self) -> list[dict]:
+        liste = [{"role": "system",
+                "content": str(self.sysprompt if self.sysprompt else bot_prompts.get("system", ""))}]
+        if self.roleplaying:
+            liste.extend({"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"})
+        return liste
+
+    async def request_wrap(self, event, user_id, command = None) -> None:
+            task_id = await random_uuid()
+            transcribed = None
+            file_meta: dict = await check_media_type(event)
+            if command == command_image:
+                return await img_wrap(self, event, user_id, command, task_id)
+            elif file_meta["type"] == "audio" or command == command_stt:
+                transcribed = await stt_wrap(self, event, user_id, task_id)
+                if not transcribed:
+                    return
+
+            return await ask_wrap(self, event, user_id, transcribed, command, task_id, file_meta)
+
+    async def delete_conversation(self, event, user_id, rol = 0, notify = 0):
+        from bot.src.config import default_chat_model
+        if self.memory and self.group_mode and user_id not in self.owners and notify:
+            return await event.reply("🚫🫂🚫")
+        if not rol and self.roleplaying:
+            self.sysprompt = ""
+            self.roleplaying = False
+            self.chat_model = default_chat_model
+            self.temperature = 1.0
+            self.top_p = 1.0
+
+        self.conversation = self.get_custom_sysprompt()
+        self.used_tokens = 0
+        if self.random_names:
+            self.user_ids_index = dict()
+
+
+async def random_uuid():
+    from uuid import uuid4
+    return str(uuid4())[:6]

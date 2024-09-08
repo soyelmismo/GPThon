@@ -1,0 +1,105 @@
+from httpx import AsyncClient
+from asyncio import gather, sleep
+from io import BytesIO
+import bot.src.constants as c
+import bot.src.config as conf
+from pprint import pformat
+from bot.src.logs import logger
+
+
+def check_others(duped_model, api, blacklist = []):
+    try:
+        for useless in ["embedding"]:
+            if useless in duped_model or duped_model in blacklist:
+                return duped_model
+        for voices in ["whisper"]:
+            if voices in duped_model:
+                if duped_model not in c.whisper_models:
+                    c.whisper_models[duped_model] = []
+                if api not in c.whisper_models[duped_model]:
+                    c.whisper_models[duped_model].append(api)
+                return duped_model
+        for images in ["dall"]:
+            if images in duped_model:
+                if duped_model not in c.img_models:
+                    c.img_models[duped_model] = []
+                if api not in c.img_models[duped_model]:
+                    c.img_models[duped_model].append(api)
+                return duped_model
+        return False
+    except:  # noqa: E722
+        return False
+
+async def models_openai(header):
+    name = "openai"
+    try:
+        blacklist = []
+        async with AsyncClient() as session:
+            response = await session.get("https://api.openai.com/v1/models", headers=header)
+            data = response.json()
+            
+            models = data["data"]
+            reduntant_models = []
+            for model_data in models:
+
+                model_name = model_data.get("id")
+                duped_model = check_others(model_name, name, blacklist)
+                duped_model = model_name if ("gpt" not in model_name
+                                            or duped_model) else False
+
+                if duped_model:
+                    reduntant_models.append(duped_model)
+                    continue
+                if model_name in reduntant_models:
+                    continue
+                if model_name not in c.chat_models:
+                    c.chat_models[model_name] = [name]
+                if name not in c.chat_models[model_name]:
+                    c.chat_models[model_name].append(name)
+    except Exception as e:
+        logger.error(f"error grabbing models: {name}: {str(e)}")
+        return
+
+def format_string(dicti):
+    length_key_pairs = [(len(v), k) for k, v in dicti.items()]
+    sorted_length_key_pairs = sorted(length_key_pairs, reverse=True)
+    return "\n".join([f"{length} - {key}" for length, key in sorted_length_key_pairs])
+
+
+async def models_grabber():
+    openai_header = {"Authorization": f"Bearer {conf.openai_style_apis['apis_normal.json'].get('openai')[1]}"}
+    while True:
+        logger.info("Fetching models from APIs...")
+        await gather(
+            models_openai(openai_header),
+        )
+
+        c.chat_models_txt = BytesIO()
+        c.chat_models_txt.name = '🤖.txt'
+        c.chat_models_txt.write(format_string(c.chat_models).encode('utf-8'))
+        c.chat_models_txt.seek(0) # type: ignore
+
+        c.img_models_txt = BytesIO()
+        c.img_models_txt.name = '🎨🤖.txt'
+        c.img_models_txt.write(format_string(c.img_models).encode('utf-8'))
+        c.img_models_txt.seek(0) # type: ignore
+
+        logger.debug(pformat(c.chat_models))
+        logger.debug(pformat(c.img_models))
+        logger.debug(pformat(c.whisper_models))
+        logger.info("Updated all models...")
+        logger.info(f"Chat models: {len(c.chat_models)}")
+        logger.info(f"Image models: {len(c.img_models)}")
+        logger.info(f"Whisper models: {len(c.whisper_models)}")
+
+        with open(conf.basepath / "resources" / "img_styles.json", "r", encoding="utf-8") as infile:
+            c.img_styles = conf.load(infile)
+            c.img_styles_txt = BytesIO()
+            c.img_styles_txt.name = '🎨👗.txt'
+            c.styles_str = "\n".join(f"- {key}" for key in c.img_styles.keys())
+            
+            c.img_styles_txt.write(c.styles_str.encode('utf-8'))
+            c.img_styles_txt.seek(0) # type: ignore
+            logger.info(f"Image styles: {len(c.img_styles)}")
+
+        await sleep(3600)

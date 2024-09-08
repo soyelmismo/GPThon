@@ -165,6 +165,13 @@ bot/resources/apis/apis_normal.json
 bot/resources/apis/apis_roleplay.json
 docker-compose.yml
 
-.vscode
+.vscode/
 
 .pushTest
+bot/src/tools/api_utils/model_indexer.py
+bot/src/handlers/commands/userclass.py.future
+bot/src/tools/tg_lib/FastTelethon.py.bak
+bot/resources/prompts.json
+bot/resources/img_styles.json
+bot/src/handlers/database.py
+*.session*
