@@ -1,18 +1,15 @@
-import bot.src.constants as constants
-from bot.src.config import max_input_tokens
-from bot.src.handlers.userclass import UserPrepare
-from bot.src.handlers.commands.rol import roleplay
-from bot.src.logs import logger
+import bot.src.constants as c
+from .rol import roleplay
 from io import BytesIO
 from hashlib import sha1
-from bot.src.wrappers.rate_limiter import rate_limit_handler
-from bot.src.tools.other_tools import select_instance
+from . import rate_limit_handler, select_instance, logger, max_input_tokens
+from bot.src.handlers.database import db
 from bot.src.tools.tg_tools import send_msg
 
 avail_args = ["streaming", "chat_model", "img_model", "memory", "sysprompt",
 "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens",
 "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
-"rol", "improve_model"]
+"rol", "improve_model", "vision_model"]
 
 shortened_args = {
     "rt": "streaming", #realtime
@@ -35,7 +32,9 @@ shortened_args = {
     "group": "group_mode",
     "rn": "random_names",
     "18": "rol",
-    "tim": "improve_model"
+    "tim": "improve_model",
+    "vm": "vision_model",
+    "vision": "vision_model"
 }
 
 
@@ -48,9 +47,9 @@ async def select(event, user_id, chat_id, command) -> None:
     logger.debug(f'Select text: `{text}`')
     notification = ""
 
-    
 
-    
+
+
     if not text:
         await send_msg(event, warning)
     else:
@@ -58,7 +57,7 @@ async def select(event, user_id, chat_id, command) -> None:
         chat_id = str(event.chat_id)
         
         for item in text:
-            class_to_edit = await select_instance(chat_id, user_id)
+            class_to_edit = await select_instance(chat_id, user_id) # type: ignore
             arg = str(item.split(" ")[0]).strip()
             logger.debug(f'Selected arg: `{arg}`')
             arg = shortened_args.get(arg, arg)
@@ -67,7 +66,7 @@ async def select(event, user_id, chat_id, command) -> None:
             value = " ".join(item.split(" ")[1:]).strip()
             logger.debug(f'Selected value: `{value}`')
             if class_to_edit.group_mode and arg not in ["status", "download", "answer_stt"]:
-                if class_to_edit.user_id != user_id:
+                if user_id not in class_to_edit.owners:
                     return await send_msg(event, "🫂 🚫")
 
             if not value and arg not in ["rol", "status", "download", "sysprompt", "chat_model",
@@ -93,10 +92,10 @@ async def select(event, user_id, chat_id, command) -> None:
 
                 case "chat_model" | "img_model" | "improve_model" | "vision_model":
                     if not class_to_edit.roleplaying:
-                        models_dict = constants.chat_models if arg == "chat_model" else constants.img_models
+                        models_dict = c.chat_models if arg in ["chat_model", "vision_model"] else c.img_models
                         if models_dict and (not value or value not in models_dict):
-                            models_file = constants.models_txt if arg == "chat_model" else constants.img_models_txt
-                            models_file.seek(0)
+                            models_file = c.chat_models_txt if arg in ["chat_model", "vision_model"] else c.img_models_txt
+                            models_file.seek(0) # type: ignore # type: ignore
                             return await send_msg(event, text = "😒", file=models_file, force_document=True, disable_delete=True)
 
                         setattr(class_to_edit, arg, str(value))
@@ -109,25 +108,24 @@ async def select(event, user_id, chat_id, command) -> None:
                     return await send_msg(event, text = "🫡", file=file, force_document=True, disable_delete=True)
                 case "sysprompt":
                     if value == "None":
-                        class_to_edit.sysprompt = None
+                        class_to_edit.sysprompt = ""
                     elif not value:
                         if class_to_edit.sysprompt and not class_to_edit.roleplaying:
-                            sysprompt = str(class_to_edit.sysprompt["content"])
-                            return await send_msg(event, sysprompt)
+                            return await send_msg(event, class_to_edit.sysprompt)
                         else:
                             return await send_msg(event, "🫵🤡🤣")
                     else:
-                        class_to_edit.sysprompt = {"role": "system", "content": str(value)}
+                        class_to_edit.sysprompt = str(value)
 
                     if class_to_edit.roleplaying:
                         rol = 1
                     else:
                         rol = 0
 
-                    await class_to_edit.delete_conversation(event, user_id, rol)
+                    await class_to_edit.delete_conversation(event, user_id, rol, notify = 1)
 
                 case "status":
-                    return await send_msg(event, f'```\n{await class_to_edit.to_string()}```', disable_delete=True)
+                    return await send_msg(event, f'```\n{class_to_edit.to_string()}```', disable_delete=True)
 
                 case "seed":
                     if value == "None":
@@ -135,35 +133,41 @@ async def select(event, user_id, chat_id, command) -> None:
                     else:
                         try:
                             value = int(value)
-                        except:
+                        except:  # noqa: E722
                             value = await hash_to_8_digits(value)
 
                     class_to_edit.seed = value
                 
                 case "group_mode" | "random_names":
+                    if chat_id != user_id:
 
-                    if not value:
-                        value = not bool(getattr(class_to_edit, arg))
-                    else:
-                        value = value.lower() == 'true'
-
-                    if not constants.index_group_instances.get(chat_id):
-                        if arg == "group_mode" and value:
-                            constants.index_group_instances[chat_id] = UserPrepare()
-                            constants.index_group_instances[chat_id].user_id = user_id
-                            constants.index_group_instances[chat_id].group_mode = True
-                            value = "🫂"
+                        if not value:
+                            value = not bool(getattr(class_to_edit, arg))
                         else:
-                            return await send_msg(event, "🤡 🫂❓")
-                    elif constants.index_group_instances[chat_id].user_id == user_id:
+                            value = value.lower() == 'true'
 
-                        if arg == "group_mode" and not value:
-                            del constants.index_group_instances[chat_id]
-                            return await send_msg(event, "🫂🔥 ✅")
-                        elif arg == "random_names":
-                            constants.index_group_instances[chat_id].random_names = value
+                        if chat_id in db.group_index and db.group_index[chat_id].owners:
+                            if user_id in db.group_index[chat_id].owners:
+                                if arg == "group_mode" and not value:
+                                    cb = await db.burn_group(chat_id)
+                                    if cb:
+                                        await send_msg(event, "🫂🔥 ✅", delete_user_message=True)
+                                    else:
+                                        await send_msg(event, "🫂🔥 ❌", delete_user_message=True)
+                                elif arg == "random_names":
+                                    db.group_index[chat_id].random_names = value
+                            else:
+                                return await send_msg(event, "🫂🔥 🚫", delete_user_message=True)
+                        elif arg == "group_mode" and value:
+                            grClass = await db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True, only_group = True)
+                            if user_id in grClass.owners:
+                                value = "🫂"
+                                db.user_index[user_id].groups.add(chat_id)
+                            else:
+                                value = "🫂❌😔"
                     else:
-                        return await send_msg(event, "🫂🔥 🚫")
+                        return await send_msg(event, "🤡 🫂❓", delete_user_message=True)
+                    
 
                 case "rol":
                     await roleplay(event, user_id, chat_id, "/select")
@@ -193,6 +197,13 @@ async def max_value_param(arg, value):
 
     return abs(int(value)) if arg == "max_tokens" else value
 
+    
+role_emojis = {
+    "system": "🗿",
+    "user": "🥸",
+    "assistant": "🤖"
+}
+
 async def get_conversation(class_to_fetch):
     t_convo = ""
     for item in class_to_fetch.conversation:
@@ -201,11 +212,11 @@ async def get_conversation(class_to_fetch):
             content = "*Roleplay*"
         else:
             content = item.get("content", "")
-        t_convo += f"*{role[0].upper()}*: {content}\n\n\n\n"
+        t_convo += f"{role_emojis.get(role, '')}: {content}\n\n"
     convo = BytesIO()
     convo.name = '🖨️.txt'
     convo.write(t_convo.encode('utf-8'))
-    convo.seek(0)
+    convo.seek(0) # type: ignore
     return convo
 
 async def hash_to_8_digits(value):

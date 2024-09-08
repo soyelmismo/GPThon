@@ -1,11 +1,11 @@
-import bot.src.constants as c
+import bot.src.config as c
 from re import escape
-from asyncio import create_task
+from asyncio import create_task, sleep
 from telethon import functions, types, events
 from bot.src.logs import logger
 from bot.src.handlers.gateway import gateway
-from bot.src.handlers.tasks import monitor_tasks, cancel_callback, tasks_identifier
-from bot.src.tools.tg_tools import send_large_message
+from bot.src.handlers.commands.tasks import monitor_tasks, cancel_callback, tasks_identifier
+from bot.src.handlers.database import db
 
 try:
     from bot.src.tools.api_utils.model_indexer import models_grabber
@@ -16,9 +16,12 @@ except ImportError:
 
 
 async def post_init():
-    create_task(monitor_tasks())
+    
+    await db.initialize_redis()
+    c.bot.loop.create_task(db.flush_task())
+    c.bot.loop.create_task(monitor_tasks())
     if models_grabber:
-        create_task(models_grabber())
+        c.bot.loop.create_task(models_grabber()) # type: ignore
 
     logger.info("Adding commands...")
     commands_list = [
@@ -39,38 +42,41 @@ async def post_init():
             ]
     )
 
-    create_task(c.bot(functions.bots.SetBotCommandsRequest(
+    c.bot.loop.create_task(c.bot(functions.bots.SetBotCommandsRequest(
         scope = types.BotCommandScopeDefault(), 
         lang_code = '',
         commands = commands_list
     )))
     msg = "Bot running ✅"
-    create_task(send_large_message(msg))
+    c.bot.loop.create_task(c.send_logs_to_channel(msg))
     logger.info(msg)
 
-def main():
+async def main():
     """Start the bot."""
-
     c.bot.add_event_handler(cancel_callback, events.CallbackQuery(pattern=f'^{tasks_identifier}'))
 
     c.bot.add_event_handler(gateway, events.NewMessage(
-    pattern = r'(^' + c.command_chat + r'(@' + escape(c.bot_data.username) + r')?(\s|$))'
+    pattern = r'(^' + c.command_chat + r'(@' + escape(c.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
 
     if c.roleplay_enabled:
-        c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/rol(@' + escape(c.bot_data.username) + r')?(\s|$)'))
+        c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/rol(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
 
 
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_stt + r'(@' + escape(c.bot_data.username) + r')?(\s|$)'))
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_stt + r'(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
 
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/vision(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_image + r'(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/select(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/retry(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/reset(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/burnme(@' + escape(c.bot_data.username) + r')?(\s|$)'))
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/help(@' + escape(c.bot_data.username) + r')?(\s|$)'))
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/vision(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_image + r'(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/select(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/retry(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/reset(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/burnme(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
+    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/help(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
     c.bot.add_event_handler(gateway, events.NewMessage(pattern = '(?s)^(?!/).*$'))
-    c.bot.loop.run_until_complete(post_init())
+    await post_init()
+    await c.bot.run_until_disconnected()
 
-    c.bot.run_until_disconnected()
+def start_bot():
+    c.bot.loop.run_until_complete(main())
+    logger.info("Closing")
+    

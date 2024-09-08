@@ -1,9 +1,9 @@
 import bot.src.tools.api_utils.gpt as gptools
 from asyncio import wait_for, CancelledError
-from bot.src.tools.tg_tools import remove_command
-from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
+from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
 import bot.src.constants as c
+from . import remove_command, bot_prompts
 from random import choice
 
 avail_args = {
@@ -52,7 +52,6 @@ async def manage_style(style, params_dict, prompt):
 
     else:
         if c.img_styles_txt:
-            #c.img_styles_txt.seek(0)
             prompt = {"message": "😒", "file": c.img_styles_txt, "force_document": True}
 
     return params_dict, prompt
@@ -75,17 +74,16 @@ async def extract_arguments(self, prompt, new_params = {}):
         ok = False
         match arg:
             case "img_model":
-                if value in ["r", "random", "a", "any"]:
-                    value = choice(list(c.img_models.keys()))
-                elif c.img_models and (not value or value not in c.img_models):
-                    #c.img_models_txt.seek(0)
-                    prompt = {"message": "😒", "file": c.img_models_txt, "force_document": True}
-                    break
+                if c.img_models:
+                    if value in ["r", "random", "a", "any"]:
+                        value = choice(list(c.img_models.keys()))
+                    elif not value or value not in c.img_models:
+                        prompt = {"message": "😒", "file": c.img_models_txt, "force_document": True}
+                        break
                 ok = True
             case "improve_model":
                 if c.chat_models and (not value or value not in c.chat_models):
-                    #c.models_txt.seek(0)
-                    prompt = {"message": "😒", "file": c.models_txt, "force_document": True}
+                    prompt = {"message": "😒", "file": c.chat_models_txt, "force_document": True}
                     break
 
                 self.improve_model = value
@@ -95,7 +93,7 @@ async def extract_arguments(self, prompt, new_params = {}):
                     value = int(value)
                     if value >= 1 or value <= 4:
                         ok = True
-                except:
+                except:  # noqa: E722
                     return f"👎🫵 .{arg} 1-4"
 
             case "ratio":
@@ -112,7 +110,7 @@ async def extract_arguments(self, prompt, new_params = {}):
                 continue
             case "improve_prompt":
                 improved_prompt = await gptools.quick_chat_completion(self, self.improve_model, [
-                    {"role": "system", "content": c.bot_prompts["img_improve"]},
+                    {"role": "system", "content": bot_prompts["img_improve"]},
                     {"role": "user", "content": prompt}
                     ]
                     )
@@ -129,7 +127,8 @@ async def extract_arguments(self, prompt, new_params = {}):
             args_tried.append(arg)
         else:
             return warning
-    new_params, prompt = await manage_style(selected_style, new_params, prompt)
+    if isinstance(prompt, str):
+        new_params, prompt = await manage_style(selected_style, new_params, prompt)
 
     if not isinstance(prompt, dict):
         if len(prompt) < 1:
@@ -142,7 +141,7 @@ async def extract_arguments(self, prompt, new_params = {}):
 async def editmsg(event, msg, text):
     return await event.client.edit_message(entity = event.chat_id, message = msg, text = text)
 
-async def img_wrap(self, event, command, task_id):
+async def img_wrap(self, event, user_id, command, task_id):
     prompt = await remove_command(self.conversation, event, command)
 
     placeholder_msg = await event.reply("🤔🎨, 🖐️⏳...", buttons = gcb(command, task_id))
@@ -159,12 +158,12 @@ async def img_wrap(self, event, command, task_id):
         return await editmsg(event, placeholder_msg, new_params)
     elif isinstance(new_params["prompt"], dict):
         await placeholder_msg.delete()
-        new_params["prompt"]["file"].seek(0)
+        new_params["prompt"]["file"].seek(0) # type: ignore
         return await event.reply(**new_params["prompt"])
 
 
-    task = do_img(self, new_params["params"]["img_model"], self.user_id, event, new_params, placeholder_msg, command)
-    msg = await add_task(command, self.user_id, task, task_id)
+    task = do_img(self, new_params["params"]["img_model"], user_id, event, new_params, placeholder_msg, command)
+    msg = await add_task(command, user_id, task, task_id)
     if msg == "CantAddMore":
         return await editmsg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return
@@ -181,13 +180,13 @@ async def do_img(self, actual_model, user_id, event, prompt, placeholder_msg, co
             for img_api in temp_apis:
                 try:
                     responseapi = gptools.call_api(self, type = command, media = prompt, api = img_api, model = actual_model)
-                    response, nprompt = await wait_for(responseapi.__anext__(), 60)
+                    response, nprompt = await wait_for(responseapi.__anext__(), 60) # type: ignore
                     prompt["prompt"] = nprompt
                 except CancelledError:
                     await placeholder_msg.delete()
                     img_pending = False
                     return
-                except:
+                except:  # noqa: E722
                     continue
 
                 if isinstance(response, list):

@@ -5,4 +5,5 @@ openai
 pillow
 cryptg
 tiktoken
-# redis
+redis
+opencv-python-headless

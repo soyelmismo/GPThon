@@ -174,3 +174,4 @@ bot/src/tools/tg_lib/FastTelethon.py.bak
 bot/resources/prompts.json
 bot/resources/img_styles.json
 bot/src/handlers/database.py
+*.session*

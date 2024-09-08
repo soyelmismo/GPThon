@@ -3,20 +3,29 @@ from random import choice
 from unicodedata import normalize, category
 from asyncio import sleep, wait_for, CancelledError
 from telethon.errors.rpcerrorlist import MessageNotModifiedError, MessageEmptyError
-from bot.src.tools.tg_tools import remove_command
 from re import sub
 from bot.src.logs import logger
 from time import time
-from bot.src.constants import bot, command_chat, allowed_chat_mimetypes
-from bot.src.tools.tg_tools import get_id, extract_media, check_size
-from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
-from bot.src.tools.other_tools import select_instance
+from datetime import datetime
+from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
+from bot.src.handlers.commands import select_instance, get_id
 from bot.src.handlers.commands.vision import do_vision
+from telethon.types import RequestedPeerUser
+from . import bot, remove_command, extract_media, rate_limit_handler, command_chat, allowed_chat_mimetypes, edit_msg
 
-#from bot.src.wrappers.rate_limiter import rate_limit_handler
+
+LOADING_CHOICES = ["😎", "😱", "😳", "🗿", "🥵",
+                   "🫣", "🤑", "🫨", "🥱", "🙉",
+                   "🤖", "🧐", "🤔", "🤫", "🙄"]
 
 
-#@rate_limit_handler(5, 60)
+max_kilobytes = 24
+
+def check_size(size):
+    return int(size) <= max_kilobytes * 1024
+
+
+@rate_limit_handler(5, 60)
 async def ask_gateway(event, user_id, chat_id, command) -> None:
     logger.debug(event)
 
@@ -24,30 +33,34 @@ async def ask_gateway(event, user_id, chat_id, command) -> None:
         return await event.reply("🤡")
     class_to_call = await select_instance(chat_id, user_id)
 
-    return await class_to_call.request_wrap(event, command)
+    return await class_to_call.request_wrap(event, user_id, command) # type: ignore
 
 
-async def ask_wrap(self, event, transcription, command, task_id, file_meta):
+async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
     try:
-        prompt = None
-        if command not in ["/retry"]:
-
-            prompt = await extract_prompt(self, event, command, transcription, file_meta)
-            if not prompt:
-                logger.debug(f"No prompt detected. Retuning None: {prompt}")
-                return
+        prompt_list = None
+        placeholder_msg = None
         c_button = gcb(command_chat, task_id)
-        placeholder_msg = await event.reply("...🤔", buttons = c_button)
-    
-        task = do_ask(self, prompt, event, command_chat, placeholder_msg, task_id, c_button)
-        msg = await add_task(command_chat, self.user_id, task, task_id)
+        if command not in ["/retry"]:
+            if file_meta["type"] == "image":
+                placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}📷", buttons = c_button)
+            prompt_list = await extract_prompt(self, event, user_id, command, transcription, placeholder_msg, c_button, file_meta)
+            if not prompt_list:
+                logger.debug(f"No prompt detected. Retuning None: {prompt_list}")
+                return None
+
+        if not placeholder_msg:
+            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
+
+        task = do_ask(self, prompt_list, event, user_id, command_chat, placeholder_msg, task_id, c_button)
+        msg = await add_task(command_chat, user_id, task, task_id)
         if msg == "CantAddMore":
-            await event.client.edit_message(entity = event.chat_id, message = placeholder_msg, text = "🫸🫨🫷")
+            await edit_msg(event, placeholder_msg, text = "🫸🫨🫷")
         return
     except Exception as e:
         logger.error(f"ask_wrap: {str(e)}")
 
-async def extract_prompt(self, event, command, transcription, file_meta = None):
+async def extract_prompt(self, event, user_id, command, transcription, placeholder_msg, buttons, file_meta = {}):
     try:
         if not isinstance(transcription, str):
 
@@ -58,42 +71,38 @@ async def extract_prompt(self, event, command, transcription, file_meta = None):
                 else:
                     await event.reply("❓")
                 return None
-    
-            if not self.memory:
-                self.used_tokens = 0
-                self.conversation = self.get_custom_sysprompt()
 
         else:
             prompt = transcription
         if self.group_mode:
             prompt = f'{await group_mode_data_fetch(self, event)}: {prompt}'
-        dict_add = {"role": "user", "content": prompt}
+        list_convo = [{"role": "user", "content": prompt}]
         if file_meta["type"] == "image":
-            logger.debug(f'{str(event.chat_id)}, {self.user_id}, {command}')
-            #if str(event.chat_id) == self.user_id or command == "/vision":
+            logger.debug(f'{str(event.chat_id)}, {user_id}, {command}')
+            #if str(event.chat_id) == user_id or command == "/vision":
             logger.debug("doing vision")
-            vision, file_meta = await do_vision(self, event, prompt, file_meta)
+            vision, file_meta = await do_vision(self, event, prompt, placeholder_msg, buttons, file_meta)
             if not vision:
                 logger.debug(f"No vision detected. Retuning None: {vision}")
-                return
+                return None
             if not prompt:
                 prompt = str(file_meta.get("name", f'.{file_meta["mime"]}'))
             #else:
             #    print("not vision")
             #    await event.reply("👁️📷❓")
             #    return
-            dict_add["content"] = f'{prompt}\n\n> .{file_meta["mime"]} context:({vision})'
-        self.conversation.append(dict_add)
-        if file_meta["mime"] in allowed_chat_mimetypes and check_size(file_meta["size"]):
+            list_convo[0]["content"] = f'{prompt}\n> .{file_meta["mime"]} context:({vision})'
+        if check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in allowed_chat_mimetypes):
             file_meta = await extract_media(event, file_meta)
-            self.conversation.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
-        logger.debug(f'Returning prompt: {prompt}')
-        return prompt
+            list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
+        logger.debug(f'Returning prompt: {list_convo}')
+        return list_convo
     except Exception as e:
         raise Exception (f"extract_prompt: {str(e)}")
 
 async def tokens_counter(self):
     try:
+        type(self.max_tokens)
         convo_token_limit = self.max_tokens
         current_token_length = await gptools.calculate_token_length(self.conversation)
 
@@ -114,9 +123,9 @@ async def process_response_chunk(event, response, done_parts, placeholder_msg, s
     try:
         async def editor_msg(message_text, wait_msg, sub_status):
             if sub_status not in ["stop", "length"]:
-                await event.client.edit_message(entity=event.chat_id, message=wait_msg, text=f'{message_text}...🤔', buttons=c_button)
+                await edit_msg(event, wait_msg, text = f'{message_text}...{choice(LOADING_CHOICES)}', buttons=c_button)
             else:
-                await event.client.edit_message(entity=event.chat_id, message=wait_msg, text=message_text)
+                await edit_msg(event, wait_msg, text = message_text)
     except Exception as e:
         logger.error(f'editor_msg: {str(e)}')
 
@@ -127,11 +136,12 @@ async def process_response_chunk(event, response, done_parts, placeholder_msg, s
                 if i not in done_parts:
                     if status not in ["stop", "length"] and len(chink) < 4080:
                         await editor_msg(chink, placeholder_msg, status)
-                    else:
-                        await editor_msg(chink, placeholder_msg, "stop")
-                        done_parts.append(i)
-                        if status not in ["stop", "length"]:
-                            placeholder_msg = await event.reply("...🤔")
+                    elif status in ["stop", "length"] or len(chink) >= 4080:
+                        if i not in done_parts:
+                            await editor_msg(chink, placeholder_msg, "stop")
+                            done_parts.append(i)
+                        if len(done_parts) < len(chunks):
+                            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}")
         else:
             await editor_msg(response, placeholder_msg, status)
         return placeholder_msg
@@ -142,7 +152,7 @@ async def process_response_chunk(event, response, done_parts, placeholder_msg, s
         raise Exception(f"process_response_chunk: {str(e)}")
 
 
-async def handle_api_response(self, prompt, event, responseapi, placeholder_msg, task_id, c_button):
+async def handle_api_response(self, event, responseapi, placeholder_msg, task_id, c_button):
     try:
         done_parts = []
         status = ""
@@ -153,7 +163,7 @@ async def handle_api_response(self, prompt, event, responseapi, placeholder_msg,
             try:
                 try:
                     response, status = await wait_for(responseapi.__anext__(), timeout=60)
-                except:
+                except:  # noqa: E722
                     raise
                 
                 end_time = time()
@@ -176,7 +186,7 @@ async def handle_api_response(self, prompt, event, responseapi, placeholder_msg,
                 if not response:
                     raise Exception("No text")
                 placeholder_msg = await process_response_chunk(event, response, done_parts, placeholder_msg, status, task_id, c_button)
-                await update_conversation_history(self, prompt, response)
+                await update_conversation_history(self, response)
                 logger.info(f"💰 {gptools.total_tokens} 💰")
                 chat_pending = False
             except Exception as e:
@@ -185,22 +195,23 @@ async def handle_api_response(self, prompt, event, responseapi, placeholder_msg,
     except Exception as e:
         raise Exception(f"handle_api_response: {str(e)}")
 
-async def update_conversation_history(self, prompt, response):
+async def update_conversation_history(self, response):
     try:
         if self.memory:
             if "1-800" in response and ("HOPE" in response or "TALK" in response):
-                self.conversation.append({"role": "assistant", "content": "👍💯!"})
-            else:
-                self.conversation.append({"role": "assistant", "content": response})
+                response = "👍💯!"
+            self.conversation.append({"role": "assistant", "content": response})
+
     except Exception as e:
         raise Exception(f"update_conversation_history: {str(e)}")
 
-async def do_ask(self, prompt, event, command, placeholder_msg, task_id, c_button):
+async def do_ask(self, prompt_list, event, user_id, command, placeholder_msg, task_id, c_button):
     try:
         logger.debug(command)
-    
+
         await tokens_counter(self)
         logger.debug(self.conversation)
+        self.conversation.extend(prompt_list)
         actual_model = str(self.chat_model)
         temp_apis = await gptools.shuffle_apis(self, actual_model, command)
         logger.debug(f"apis for chat {temp_apis}")
@@ -210,16 +221,19 @@ async def do_ask(self, prompt, event, command, placeholder_msg, task_id, c_butto
                 logger.debug("Calling api")
                 responseapi = gptools.call_api(self, command, media = None, api = api, model = actual_model)
                 logger.debug("Continuing api processing")
-                placeholder_msg = await handle_api_response(self, prompt, event, responseapi, placeholder_msg, task_id, c_button)
+                placeholder_msg = await handle_api_response(self, event, responseapi, placeholder_msg, task_id, c_button)
                 break
     
             except Exception as e:
                 logger.error(f"Error with {api}: {str(e)}")
                 continue
         else:
-            await event.client.edit_message(entity=event.chat_id, message=placeholder_msg, text='✍️ 😔❌👍')
+            await edit_msg(event, placeholder_msg, text = '✍️ 😔❌👍')
     except Exception as e:
         raise Exception(f"do_ask: {str(e)}")
+    finally:
+        if not self.memory:
+            await self.delete_conversation(event, user_id)
 
 async def gen_random_name(length=6):
     try:
@@ -250,11 +264,11 @@ async def normalize_text(text):
 async def group_mode_data_fetch(self, event):
     try:
         user_id = await get_id(event)
-        if not self.user_ids_index.get(user_id):
+        if user_id not in self.user_ids_index:
             if self.random_names:
                 self.user_ids_index[user_id] = await gen_random_name()
             else:
-                user_data = await bot.get_entity(int(user_id))
+                user_data: RequestedPeerUser = await bot.get_entity(int(user_id)) # type: ignore
                 new_name = (user_data.first_name if user_data.first_name
                             else user_data.username if user_data.username
                             else ""

@@ -1,13 +1,17 @@
-from asyncio import create_task, Lock, CancelledError, sleep
-from copy import deepcopy
+
 from bot.src.logs import logger
-from bot.src.tools.other_tools import select_instance
-from random import choice
-from string import ascii_letters, digits
-from telethon import Button
 from bot.src.config import command_chat, command_image, command_stt
 
+from asyncio import create_task, Lock as TaskLock, CancelledError, sleep
+from telethon import Button
+
+from copy import deepcopy
+from random import choice
+from string import ascii_letters, digits
+from . import select_instance
+
 index_tasks = {}
+
 
 
 def task_gen_temp_identifier(length = 3):
@@ -28,15 +32,15 @@ task_types = {
 }
 
 task_limits = {
-    command_chat: 5,
-    command_image: 3,
-    command_stt: 5
+    command_chat: 2,
+    command_image: 2,
+    command_stt: 2
 }
 
 user_locks = {}
 async def get_user_lock(user_id):
     if user_id not in user_locks:
-        user_locks[user_id] = Lock()
+        user_locks[user_id] = TaskLock()
     return user_locks[user_id]
 
 
@@ -109,11 +113,10 @@ async def cancel_callback(event):
         logger.error(str(e))
 
 
-
 async def monitor_tasks(update_each_seconds=5):
     while True:
         if any(index_tasks.values()):
-            logger.info("Tasks:\n")
+            logger.info("User tasks:\n")
             users_to_remove = []
             for user_id, tasks in list(index_tasks.items()):
                 chat_count = len(tasks[command_chat])

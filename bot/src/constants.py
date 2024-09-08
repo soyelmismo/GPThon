@@ -1,25 +1,52 @@
-from telethon import TelegramClient
-from bot.src.config import (
-    api_id, api_hash, bot_token,
-    session_name, error_report_channel_id,  # noqa: F401
-    error_report_channel_thread, roleplay_enabled,  # noqa: F401
-    bot_name, img_styles, img_styles_txt, styles_str,  # noqa: F401
-    command_stt, command_image, command_chat,  # noqa: F401
-    text_improve_model, bot_prompts  # noqa: F401
-)
-
-chat_models = {}
-models_txt = ""
-img_models = {}
+chat_models: dict[str, list] = {}
+chat_models_txt = ""
+img_models: dict[str, list] = {}
 img_models_txt = ""
-whisper_models = {}
+whisper_models: dict[str, list] = {}
+
+img_styles: dict[str, str] = {}
+img_styles_txt = ""
+styles_str: str = ""
 
 allowed_chat_mimetypes = ["plain", "javascript"]
-allowed_image_mimetypes = ["jpeg", "webp"]
+allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
 
-
-bot = TelegramClient(session_name, api_id, api_hash).start(bot_token=bot_token)
-bot.parse_mode = 'md'
-bot_data = bot.loop.run_until_complete(bot.get_me())
-index_user_instances = {}
-index_group_instances = {}
+colors = {
+    'reset': '\033[0m',        # Reset (elimina los colores)
+    'bold': '\033[1m',         # Texto en negrita
+    'underline': '\033[4m',    # Texto subrayado
+    'black': '\033[30m',       # Negro
+    'red': '\033[31m',         # Rojo
+    'green': '\033[32m',       # Verde
+    'yellow': '\033[33m',      # Amarillo
+    'blue': '\033[34m',        # Azul
+    'magenta': '\033[35m',     # Magenta
+    'cyan': '\033[36m',        # Cyan
+    'white': '\033[37m',       # Blanco
+    'orange': '\033[38;5;208m',              # Naranja
+    'bright_orange': '\033[38;5;216m',        # Naranja claro
+    'bright_black': '\033[90m',       # Negro claro
+    'bright_red': '\033[91m',         # Rojo claro
+    'bright_green': '\033[92m',       # Verde claro
+    'bright_yellow': '\033[93m',      # Amarillo claro
+    'bright_blue': '\033[94m',        # Azul claro
+    'bright_magenta': '\033[95m',     # Magenta claro
+    'bright_cyan': '\033[96m',        # Cyan claro
+    'bright_white': '\033[97m',       # Blanco claro
+    'bg_black': '\033[40m',    # Fondo Negro
+    'bg_red': '\033[41m',      # Fondo Rojo
+    'bg_green': '\033[42m',    # Fondo Verde
+    'bg_yellow': '\033[43m',   # Fondo Amarillo
+    'bg_blue': '\033[44m',     # Fondo Azul
+    'bg_magenta': '\033[45m',  # Fondo Magenta
+    'bg_cyan': '\033[46m',     # Fondo Cyan
+    'bg_white': '\033[47m',    # Fondo Blanco
+    'bg_bright_black': '\033[100m',    # Fondo Negro claro
+    'bg_bright_red': '\033[101m',      # Fondo Rojo claro
+    'bg_bright_green': '\033[102m',    # Fondo Verde claro
+    'bg_bright_yellow': '\033[103m',   # Fondo Amarillo claro
+    'bg_bright_blue': '\033[104m',     # Fondo Azul claro
+    'bg_bright_magenta': '\033[105m',  # Fondo Magenta claro
+    'bg_bright_cyan': '\033[106m',     # Fondo Cyan claro
+    'bg_bright_white': '\033[107m'     # Fondo Blanco claro
+}

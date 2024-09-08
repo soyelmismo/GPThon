@@ -1,16 +1,16 @@
 from openai import AsyncOpenAI
 from bot.src.config import (openai_style_apis, exclusive_api_chat_ids,
                             exclusive_api_name, max_total_tokens,
-                            command_chat, command_image, command_stt)
+                            command_chat, command_image, command_stt,
+                            send_logs_to_channel)
 from bot.src.logs import logger
-from bot.src.tools.tg_tools import send_large_message
 from asyncio import create_task, gather, wait_for, CancelledError
 from random import uniform, shuffle, randint
 from tiktoken import get_encoding
 import bot.src.constants as c
 from httpx import AsyncClient
 from io import BytesIO
-from PIL.Image import open
+from PIL import Image
 
 
 
@@ -24,26 +24,26 @@ total_reqs = {
 
 api_reqs = {}
 
-async def quick_chat_completion(self, model, conversa, custom_params = None):
+async def quick_chat_completion(cls, model, conversa, custom_params = None):
     try:
 
         class tempClass():
-            def __init__(sc):
-                sc.user_id = self.user_id
-                sc.conversation = conversa
-                sc.chat_model = model
-                sc.streaming = False
-                sc.seed = None
-                sc.max_tokens = 2048
-                sc.temperature = 1
-                sc.top_p = 1
-                sc.frequency_penalty = 0
-                sc.presence_penalty = 0
-                sc.used_tokens = 0
-                sc.randomizer = False
+            def __init__(self):
+                self.user_id = cls.user_id
+                self.conversation = conversa
+                self.chat_model = model
+                self.streaming = False
+                self.seed = None
+                self.max_tokens = 2048
+                self.temperature = 1
+                self.top_p = 1
+                self.frequency_penalty = 0
+                self.presence_penalty = 0
+                self.used_tokens = 0
+                self.randomizer = False
 
         
-        command = c.command_chat
+        command = command_chat
 
         temp_instance = tempClass()
         if custom_params:
@@ -57,7 +57,7 @@ async def quick_chat_completion(self, model, conversa, custom_params = None):
                 logger.debug(f'quick_chat_completion {chat_api}')
                 try:
                     responseapi = call_api(self=temp_instance, type = command, api = chat_api, model = temp_instance.chat_model)
-                    response, status = await wait_for(responseapi.__anext__(), 60)
+                    response, status = await wait_for(responseapi.__anext__(), 60) # type: ignore
                     if status == "stop":
                         logger.debug(f"Returning quick_chat_completion `{response}`")
                         return response
@@ -67,7 +67,7 @@ async def quick_chat_completion(self, model, conversa, custom_params = None):
                 except CancelledError:
                     quick_pending = False
                     return "Cancelled"
-                except:
+                except:  # noqa: E722
                     continue
 
             else:
@@ -84,7 +84,7 @@ async def update_total_reqs(type, api, model, user_id):
     logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ✅ {user_id}")
 
 
-async def call_api(self, type = None, media=None, api = None, model = None):
+async def call_api(self, type = None, media=None, api = None, model = None) :
     response = None
     if not api_reqs.get(api):
         api_reqs[api] = [0, 0]
@@ -120,7 +120,7 @@ async def call_api(self, type = None, media=None, api = None, model = None):
             raise Exception("no type matched")
     except Exception as e:
         api_reqs[api][1] += 1
-        create_task(send_large_message(f'{str(e)}: {response}\n\nTotal/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
+        create_task(send_logs_to_channel(f'Error message: `{str(e)}`:\n\nResponse: `{response}`\n\nAPI: `{api}`\nModel: `{model}`\nTotal requests/Failed: `{api_reqs[api][0]}`/`{api_reqs[api][1]}`'))
         raise ConnectionRefusedError(f'Error in call_api: {str(e)}')
 
 async def request_chat_completion(self, api, client: AsyncOpenAI):
@@ -174,10 +174,10 @@ async def request_chat_completion(self, api, client: AsyncOpenAI):
                         raise ValueError(f'"{res_text}" inexistent')
                     try:
                         tok = chunk.x_groq.get('usage', {}).get('total_tokens', 0)
-                    except:
+                    except:  # noqa: E722
                         try:
                             tok = chunk.usage.total_tokens
-                        except:
+                        except:  # noqa: E722
                             tok = 0
 
                     total_tokens += tok
@@ -190,7 +190,7 @@ async def request_chat_completion(self, api, client: AsyncOpenAI):
                 yield res_text, "continue"
 
     except Exception as e:
-        raise ConnectionAbortedError(f"chat completion exception: {api} {str(e)}... {response}")
+        raise ConnectionAbortedError(f"chat completion exception: {str(e)}... {response}")
 
 async def transcribe_audio(api, model, media, client: AsyncOpenAI):
     response = None
@@ -214,7 +214,7 @@ async def transcribe_audio(api, model, media, client: AsyncOpenAI):
         yield response, "done"
 
     except Exception as e:
-        raise ConnectionAbortedError(f"transcribe_audio exception: {api}: {str(e)}... {response}")
+        raise ConnectionAbortedError(f"transcribe_audio exception: {str(e)}... {response}")
 
 async def generate_image(api, model, client: AsyncOpenAI, img_params):
     response = None
@@ -236,8 +236,9 @@ async def generate_image(api, model, client: AsyncOpenAI, img_params):
         if not isinstance(response, str):
             images = response.data
             img_list = []
-            for i in images:
-                img_list.append(i.url)
+            if isinstance(images, list):
+                for i in images:
+                    img_list.append(i.url)
             img_list = await download_images(img_list)
             img_prompt = response.data[0].revised_prompt or img_params["prompt"]
         logger.debug(img_list)
@@ -247,7 +248,7 @@ async def generate_image(api, model, client: AsyncOpenAI, img_params):
         yield img_list, img_prompt
 
     except Exception as e:
-        raise ConnectionAbortedError(f"image generation exception: {api}: {str(e)}... {response}")
+        raise ConnectionAbortedError(f"image generation exception: {str(e)}... {response}")
 
 enc = get_encoding("cl100k_base")
 async def calculate_token_length(conversation):
@@ -260,18 +261,21 @@ async def calculate_token_length(conversation):
     return total_tokens
 
 
-async def shuffle_apis(user_id, model, type):
-    if type == command_chat:
-        temp_apis = c.chat_models[model].copy()
-    elif type == command_image:
-        temp_apis = c.img_models[model].copy()
-    elif type == command_stt:
-        temp_apis = c.whisper_models[model].copy()
+async def shuffle_apis(user_id, model, type) -> list[str]:
+    if c.chat_models or c.img_models or c.whisper_models:
+        if type == command_chat:
+            temp_apis = c.chat_models[model].copy()
+        elif type == command_image:
+            temp_apis = c.img_models[model].copy()
+        elif type == command_stt:
+            temp_apis = c.whisper_models[model].copy()
 
-    shuffle(temp_apis)
-    if exclusive_api_name in temp_apis:
-        temp_apis.remove(exclusive_api_name)
-        temp_apis.append(exclusive_api_name) if user_id in exclusive_api_chat_ids else None
+        shuffle(temp_apis)
+        if exclusive_api_name in temp_apis:
+            temp_apis.remove(exclusive_api_name)
+            temp_apis.append(exclusive_api_name) if user_id in exclusive_api_chat_ids else None
+    else:
+        temp_apis = list(openai_style_apis.keys())
     return temp_apis
 
 async def download_image(client, url):
@@ -283,10 +287,14 @@ async def download_image(client, url):
 
 async def compress_image(img, black_check = None, file_name = None, mime_type = None, quality = 95):
     try:
-        img = BytesIO(img)
-        img.seek(0)
-
-        image = open(img)
+        print(type(img))
+        if isinstance(img, Image.Image):  # Verifica si img ya es un objeto PIL.Image
+            image = img
+        else:
+            # Si img no es un objeto PIL.Image, conviértelo a BytesIO y ábrelo como imagen
+            img = BytesIO(img)
+            img.seek(0)
+            image = Image.open(img)
 
         if black_check:
             image_gray = image.convert('L')
@@ -296,15 +304,15 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
 
         img_bytes = BytesIO()
 
-        if mime_type not in c.allowed_image_mimetypes:
+        if mime_type == "webm" or mime_type not in c.allowed_image_mimetypes:
             mime_type = "jpeg"
 
-        if not black_check and image.width > 800 or image.height > 800:
-            image.thumbnail((800, 800))
+        #if not black_check and image.width > 1000 or image.height > 1000:
+            #image.thumbnail((1000, 1000))
 
 
         image.save(img_bytes, format=mime_type, quality=quality)
-        img_bytes.seek(0)
+        img_bytes.seek(0) # type: ignore
 
         if not file_name:
             random_id = randint(0, 99999999)
