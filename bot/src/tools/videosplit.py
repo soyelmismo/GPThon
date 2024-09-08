@@ -29,11 +29,6 @@ async def extract_photos(bytes, mime):
                 frames.append(frame)
             else:
                 logger.error(f"extract_photos: can't read frame: {frame_num}")
-                # Usar la imagen por defecto si ya existe alguna capturada
-                #if len(frames) > 0:
-                #    frames.append(np.zeros_like(frames[0]))
-                #else:
-                #    frames.append(np.zeros((480, 640, 3), dtype=np.uint8))
 
         cap.release()
 

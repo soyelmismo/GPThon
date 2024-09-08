@@ -6,7 +6,6 @@ from telethon.errors.rpcerrorlist import MessageNotModifiedError, MessageEmptyEr
 from re import sub
 from bot.src.logs import logger
 from time import time
-from datetime import datetime
 from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
 from bot.src.handlers.commands import select_instance, get_id
 from bot.src.handlers.commands.vision import do_vision
