@@ -1,6 +1,6 @@
 import logging
 
-name = "GPT"
+name = ">"
 level = logging.INFO
 
 # Configurar el logger

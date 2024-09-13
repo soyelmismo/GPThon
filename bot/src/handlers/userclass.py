@@ -1,42 +1,54 @@
 from json import loads, JSONDecodeError
 from datetime import datetime
-from copy import deepcopy
 
 from bot.src.config import (bot_prompts, command_image, command_stt,default_chat_model, default_img_model, default_vision_model,
-                            text_improve_model)
+                            text_improve_model, command_transcribe, default_tool_model, default_embedding_model,
+                            default_tts_voice)
+from bot.src import constants as co
 from bot.src.handlers import check_media_type
 from bot.src.handlers.commands.stt import stt_wrap
 from bot.src.handlers.commands.img import img_wrap
+from bot.src.handlers.commands.tts import tts_wrap
 from bot.src.handlers.commands.ask import ask_wrap
 
 
 status_blacklist: list = ["conversation",
                        "whisper_model", "whisper_api",
                        "img_api", "sysprompt", "user_id",
-                       "user_ids_index",
-                       "owners"
+                       "user_ids_index", "embedding_model",
+                       "owners", "last_seen",
+                       "tool_model", "to_tts", "tts_voice"
                     ]
 
 class UserPrepare():
     def __init__(self) -> None:        
         self.group_mode: bool = False
         self.random_names: bool = True
+        self.session_tokens: int = 0
         self.used_tokens: int = 0
-        self.chat_model: str = default_chat_model
-        self.img_model: str = default_img_model
+        self.chat_model: str = co.session_default_chat_model
+        self.img_model: str = co.session_default_img_model
         self.improve_model: str = text_improve_model
         self.vision_model: str = default_vision_model
+        self.tool_model: str = default_tool_model
+        self.embedding_model: str = default_embedding_model
+        self.tts_voice: str = default_tts_voice
         self.streaming: bool = True
+        self.transcribe: bool = False
         self.answer_stt: bool = False
+        self.to_tts: bool = False
         self.roleplaying: bool = False
         self.memory: bool = True
-        self.max_tokens: int = 2048
+        self.max_tokens: int = 1024
         self.seed: int | None = None
         self.temperature: float = 1.0
         self.top_p: float = 1.0
         self.frequency_penalty: float = 0.0
         self.presence_penalty: float = 0.0
         self.randomizer: bool = False
+        self.stt_language = None
+        self.summarize: bool = True
+        self.tool_call: bool = False
         self.sysprompt: str = ""
         self.user_id: str  = ''
         self.groups: set = set()
@@ -98,29 +110,45 @@ class UserPrepare():
         return '\n'.join(lines[:-1]) + '\n'
 
     def get_custom_sysprompt(self) -> list[dict]:
-        liste = [{"role": "system",
-                "content": str(self.sysprompt if self.sysprompt else bot_prompts.get("system", ""))}]
+        new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
+        if self.tool_call:
+            
+            new_system += f"\n\nRemember to use ({", ".join(f'"{tool}"' for tool in co.tools_loaded)}) "
+            new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
+
+        liste = [{"role": "system", "content": new_system}]
+
         if self.roleplaying:
-            liste.extend({"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"})
+            liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
     async def request_wrap(self, event, user_id, command = None) -> None:
-            task_id = await random_uuid()
-            transcribed = None
-            file_meta: dict = await check_media_type(event)
-            if command == command_image:
-                return await img_wrap(self, event, user_id, command, task_id)
-            elif file_meta["type"] == "audio" or command == command_stt:
+        task_id = await self.random_uuid()
+        transcribed = None
+        file_meta: dict = await check_media_type(event)
+        if command == command_image:
+            return await img_wrap(self, event, user_id, command, task_id)
+        elif file_meta["type"] == "audio":
+            if command == command_stt or (self.transcribe and command == command_transcribe):
                 transcribed = await stt_wrap(self, event, user_id, task_id)
                 if not transcribed:
                     return
+            else:
+                return
+        elif command == "/vision" and file_meta["type"] != "image":
+            await event.reply("👁️📷❓")
+            return
+        elif command == "/tts":
+            return await tts_wrap(self, event, user_id, command, task_id)
 
-            return await ask_wrap(self, event, user_id, transcribed, command, task_id, file_meta)
+        return await ask_wrap(self, event, user_id, transcribed, command, task_id, file_meta)
 
-    async def delete_conversation(self, event, user_id, rol = 0, notify = 0):
+    async def delete_conversation(self, event=None, user_id=None, rol = 0, notify = 0, summarized = 0):
         from bot.src.config import default_chat_model
-        if self.memory and self.group_mode and user_id not in self.owners and notify:
-            return await event.reply("🚫🫂🚫")
+        if (event and self.memory and self.group_mode and
+            user_id and user_id not in self.owners and notify):
+                return await event.reply("🚫🫂🚫")
+
         if not rol and self.roleplaying:
             self.sysprompt = ""
             self.roleplaying = False
@@ -129,11 +157,11 @@ class UserPrepare():
             self.top_p = 1.0
 
         self.conversation = self.get_custom_sysprompt()
-        self.used_tokens = 0
-        if self.random_names:
+        self.session_tokens = 0
+        if self.random_names and not summarized:
             self.user_ids_index = dict()
 
-
-async def random_uuid():
-    from uuid import uuid4
-    return str(uuid4())[:6]
+    @staticmethod
+    async def random_uuid():
+        from uuid import uuid4
+        return str(uuid4())[:6]

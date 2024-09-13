@@ -18,7 +18,7 @@ def task_gen_temp_identifier(length = 3):
     caracteres = ascii_letters + digits
     return ''.join(choice(caracteres) for _ in range(length))
 
-def gen_cancel_button(command, task_id):
+async def gen_cancel_button(command, task_id):
     return [
         [Button.inline("🚫", data=f'{tasks_identifier}|{command}|{task_id}')]
         ]
@@ -28,13 +28,15 @@ tasks_identifier = task_gen_temp_identifier(3)
 task_types = {
     command_chat: {},
     command_image: {},
-    command_stt: {}
+    command_stt: {},
+    "/tts": {}
 }
 
 task_limits = {
     command_chat: 2,
     command_image: 2,
-    command_stt: 2
+    command_stt: 2,
+    "/tts": 2
 }
 
 user_locks = {}
@@ -80,7 +82,7 @@ async def cancel_task(task_type, user_id, task_id):
         try:
             if not index_tasks.get(user_id, {}).get(task_type):
                 logger.info(f"No tasks of {task_type}")
-                raise ModuleNotFoundError()
+                raise ModuleNotFoundError("Task not found")
 
             task = index_tasks[user_id][task_type].get(task_id, None)
             if not task:
@@ -96,7 +98,7 @@ async def cancel_task(task_type, user_id, task_id):
             logger.info(f"Task {task_type} - Task ID: {task_id} - User: {user_id} - Cancelled.")
             message = "🫡✅"
         finally:
-            index_tasks[user_id][task_type].pop(task_id, None)
+            index_tasks.get(user_id, {}).get(task_type, {}).pop(task_id, None)
             return message
 
 async def cancel_callback(event):
@@ -115,16 +117,17 @@ async def cancel_callback(event):
 
 async def monitor_tasks(update_each_seconds=5):
     while True:
-        if any(index_tasks.values()):
-            logger.info("User tasks:\n")
+        if len(index_tasks):
+            logger.info(f'Total users with tasks: {len(index_tasks)}')
             users_to_remove = []
             for user_id, tasks in list(index_tasks.items()):
                 chat_count = len(tasks[command_chat])
                 img_count = len(tasks[command_image])
                 stt_count = len(tasks[command_stt])
+                tts_count = len(tasks["/tts"])
 
-                if chat_count or img_count or stt_count:
-                    logger.info(f"{user_id}: {command_chat}: {chat_count}, {command_image}: {img_count}, {command_stt}: {stt_count}.")
+                if chat_count or img_count or stt_count or tts_count:
+                    logger.debug(f"{user_id}: {command_chat}: {chat_count}, {command_image}: {img_count}, {command_stt}: {stt_count}., {"/tts"}: {stt_count}.")
                 else:
                     users_to_remove.append(user_id)
 

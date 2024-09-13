@@ -1,0 +1,296 @@
+from bot.src.tools.params.longAssDicts import *
+from sys import _getframe
+
+#pattern = compile(r"(\s*\.|\n*\.)([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*)") OK
+pattern = compile(r"(\s+\.[a-zA-Z0-9]+(\s+[^\s.\/]|[\S])*)") #OK OK GOOOOD
+
+async def extract_prompt_args(this):
+    try:
+        splat = findall(pattern, this)
+        finds = [arg[0].strip()[1:] for arg in splat]
+        return this.split(" .")[0], finds
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        return this, None
+    
+
+async def extract_arg_value(item):
+    arg, value = "", ""
+    try:
+        arg = str(item.split(" ")[0]).strip()
+        arg = shortened_args.get(arg, arg)
+        value = " ".join(item.split(" ")[1:]).strip()
+        
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+    finally:
+        return arg, value
+
+async def manage_style(thisShit, style_name):
+    style_prompt = None
+    try:
+        if style_name in ["r", "random", "a", "any"]:
+            style_name = choice([e for e in c.img_styles.keys() if e not in ["general", "raw"]])
+        style_prompt = c.img_styles.get(style_name, None)
+
+        if not style_prompt:
+            style_name = {"text": f"⚠️**{style_name}**⚠️\n\n😒", "file": c.img_styles_txt, "force_document": True, "disable_delete": True}
+        else:
+            style_prompt = str(style_prompt).replace("{p}", thisShit.prompt).strip()
+
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+    finally:
+        thisShit.style_data = [style_name, style_prompt]
+        thisShit.style_name = style_name
+
+async def final_img_step(thisShit):
+    try:
+        if len(thisShit.prompt) > 999:
+            thisShit.prompt = thisShit.prompt[:999]
+        await manage_style(thisShit, thisShit.style_name)
+
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+            
+
+photos_err = f"👎🫵 `.photos` `1` - `4`"
+async def p_photos(thisShit, value, arg):
+    
+    try:
+        value = int(value)
+        if value not in range(1, 5):
+            value = photos_err
+
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        value = photos_err
+    finally:
+        thisShit.photos = value
+
+ratios_err = f"👎🫵 {', '.join(f'`.r {ratio}`' for ratio in img_ratios.keys())}"
+
+async def p_ratio(thisShit, value):
+    try:
+        grab = img_ratios.get(value)
+        if grab:
+            value = grab
+        else:
+            value = ratios_err
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        value = ratios_err
+    finally:
+        thisShit.ratio = value
+
+improve_err = ["❌😔"]
+async def p_improve(thisShit, user_id):
+    try:
+        thisShit.conversation = [
+            {"role": "system", "content": bot_prompts["img_improve"]},
+            {"role": "user", "content": thisShit.prompt}
+            ]
+        improved_prompt = await oai.quick_chat_completion(thisShit, user_id, thisShit.improve_model)
+
+        if improved_prompt == "Cancelled":
+            return [None]
+        elif not isinstance(improved_prompt, str):
+            improved_prompt = improve_err
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        improved_prompt = improve_err
+    finally:
+        thisShit.prompt = improved_prompt
+        
+async def p_floats(thisShit, arg, value):
+    try:
+        value = await max_value_param(arg, float(value))
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        value = "🤡"
+    finally:
+        setattr(thisShit, arg, value)
+
+async def max_value_param(arg, value):
+    try:
+        if arg in ["temperature", "top_p"]:
+            pmin, pmax = 0, 2
+        elif arg in ["presence_penalty", "presence_penalty"]:
+            pmin, pmax = -2, 2
+        else:
+            pmin, pmax = 512, max_input_tokens
+        value = min(max(value, pmin), pmax)
+    except Exception as e:
+        e = f"{_getframe().f_code.co_name}: {str(e)}"
+        logger.error(e)
+        raise e
+    finally:
+        return abs(int(value)) if arg == "max_tokens" else value
+
+
+
+async def p_auto_bool(thisShit, arg, value):
+    try:
+        if not value:
+            value = not getattr(thisShit, arg)
+        else:
+            value = value.lower() == 'true'
+    except Exception as e:
+        e = f"{_getframe().f_code.co_name}: {str(e)}"
+        logger.error(e)
+        raise e
+    finally:
+        setattr(thisShit, arg, value)
+
+model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
+
+forbidden = {"text": "🚫🔞🚫"}
+async def p_models(thisShit, arg, value):
+    try:
+        if not thisShit.roleplaying:
+            models_dict = (
+                            c.img_models if arg in ["img_model"]
+                            else c.embed_models if arg in ["embedding_model"]
+                            else c.speech_voices if arg in ["tts_voice"]
+                            else c.chat_models
+                            )
+            if models_dict:
+                if value in ["r", "random", "a", "any"]:
+                    value = choice(list(models_dict.keys()))
+                elif not value or value not in models_dict:
+                    models_file = (
+                                   c.img_models_txt if arg in ["img_model"]
+                                   else c.embed_models_txt if arg in ["embedding_model"]
+                                   else c.speech_voices_txt if arg in ["tts_voice"]
+                                   else c.chat_models_txt
+                                   )
+                    value = {"text": f"⚠️**{value}**⚠️\n\n😒", "file": models_file, "force_document": True, "disable_delete": True}
+
+        else:
+            value = forbidden
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        value = forbidden
+    finally:
+        setattr(thisShit, arg, value)
+
+
+async def get_conversation(thisShit, user_id = None, summary = None):
+    try:
+        t_convo = ""
+        for item in thisShit.conversation:
+            role = item.get("role", " ")
+            emoji = role_emojis.get(role, '')
+            if role == "system" and thisShit.roleplaying:
+                content = "*Roleplay*"
+            else:
+                content = item.get("content", "")
+            if role == "tool":
+                emoji = f'{emoji} [{item.get("name", "")}]'
+            t_convo += f"{emoji}: {content}\n\n"
+        if summary:
+            thisShit.conversation = [{"role": "system", "content": bot_prompts.get("summarizer", "").replace("{input}", t_convo)}]
+            thisShit.temperature = 1.28
+            summarized = await oai.quick_chat_completion(thisShit, user_id=user_id, model="llama3-8b-8192")
+            return summarized
+        convo = BytesIO()
+        convo.name = '🖨️.txt'
+        convo.write(t_convo.encode('utf-8'))
+        return convo
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+
+async def p_sysprompt(cls, thisShit, value, event, user_id):
+    try:
+        if thisShit.roleplaying:
+            thisShit.warning = "🫵🤡🤣"
+            return
+        elif value:
+            if value == "None":
+                value = ""
+                thisShit.sysprompt = str(value)
+            else:
+                thisShit.sysprompt = str(value)
+        else:
+            value = cls.sysprompt
+
+        await cls.delete_conversation(event, user_id, 0, notify = 1)
+        return value
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+
+
+async def p_seed(thisShit, value):
+    try:
+        if value == "None":
+            value = None
+        else:
+            try:
+                value = int(value)
+            except:
+                value = await hash_to_8_digits(value)
+
+        thisShit.seed = value
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+
+async def hash_to_8_digits(value):
+    hash_value = sha1(str(value).encode()).hexdigest()
+    int_value = int(hash_value, 16)
+    result = int_value % 10**8
+    return result
+
+
+
+# This is not mini
+async def p_group(thisShit, arg, value, chat_id, user_id):
+    try:
+        if chat_id != user_id:
+
+            if not value:
+                value = not bool(getattr(thisShit, arg))
+            else:
+                value = value.lower() == 'true'
+
+            if chat_id in db.index and db.index[chat_id].owners:
+                if user_id in db.index[chat_id].owners:
+                    if arg == "group_mode" and not value:
+                        cb = await db.burn_group(chat_id)
+                        if cb:
+                            async with db.lock:
+                                db.index[user_id].groups.discard(chat_id)
+                            value = {"text": "🫂🔥 ✅", "delete_user_message": True}
+                        else:
+                            value = {"text": "🫂🔥 ❌", "delete_user_message": True}
+                    elif arg == "random_names":
+                        async with db.lock:
+                            db.index[chat_id].random_names = value
+                else:
+                    value = {"text": "🫂🔥 🚫", "delete_user_message": True}
+            elif arg == "group_mode" and value:
+                grClass = await db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True, only_group = True)
+                if user_id in grClass.owners:
+                    value = "🫂"
+                    async with db.lock:
+                        db.index[user_id].groups.add(chat_id)
+                else:
+                    value = "🫂❌😔"
+        else:
+            value = {"text": "🤡 🫂❓", "delete_user_message":True}
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+    finally:
+        return value
+    
+async def p_language(thisShit, value):
+    try:
+        if value == "None":
+            value = None
+        else:
+            value = str(value).lower()
+            if value and value not in iso_639_codes:
+                value = {"text": f"⚠️**{value}**⚠️\n\n🧛", "file": iso_639_codes_txt, "disable_delete": True}
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+    finally:
+        thisShit.stt_language = value

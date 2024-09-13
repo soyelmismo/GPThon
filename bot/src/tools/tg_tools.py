@@ -1,16 +1,18 @@
 
 from telethon.types import PeerUser, MessageMediaPhoto, MessageMediaDocument, DocumentAttributeFilename, DocumentAttributeVideo
 from bot.src.config import (bot_data, bot_name, whitelist_chat_ids, blacklist_chat_ids, logger, command_stt, command_image,
-                            command_chat
+                            command_chat, command_transcribe
                             )
 from asyncio import sleep
 from telethon.errors.rpcerrorlist import MessageDeleteForbiddenError
+
 
 command_list = [command_chat,
                 "/rol",
                 "/reset", "/select", "/retry",
                 command_stt, "/burnme", "/vision",
-                command_image, "/help"
+                command_image, "/help", "/embed",
+                "/tts"
                 ]
 
 async def check_media_type(event) -> dict:
@@ -54,21 +56,22 @@ async def check_media_type(event) -> dict:
 async def is_bot_mentioned(event):
     try:
         message = event.message
-        command = str(message.message).split(" ")[0].lower().strip()
+        command = str(message.message).split(" ")[0].split("\n")[0].lower().strip()
         bot_alias = ""
 
-        is_private_chat = isinstance(event.peer_id, PeerUser) and bool(event.chat_id == event.sender_id)
-
+        audio = (event.message.document and event.message.document.mime_type.startswith("audio"))
         if "@" in command:
             command, bot_alias = command.split("@")
-        if (is_private_chat and command not in command_list
+        if (not audio and (event.is_private and command not in command_list
             or command not in command_list and bot_alias == bot_data.username
             or command == bot_name
-            or message.mentioned and command not in command_list
+            or message.mentioned and command not in command_list)
             ):
             return True, command_chat
         elif command in command_list:
             return True, command
+        elif audio:
+            return True, command_transcribe
         else:
             return False, command
 
@@ -99,6 +102,8 @@ async def whitelist_check(event):
 
 
 async def quick_msg(event, text = None,  file = None, force_document = None):
+    if file:
+        file.seek(0)
     return await event.reply(text, file = file, force_document = force_document)
 
 async def send_msg(event, text, file = None, force_document = None, delete_user_message = None, disable_delete = None):

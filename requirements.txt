@@ -7,3 +7,8 @@ cryptg
 tiktoken
 redis
 opencv-python-headless
+docstring_parser
+duckduckgo_search
+python_weather
+html2text
+aiohttp

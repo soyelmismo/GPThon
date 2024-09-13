@@ -174,3 +174,8 @@ bot/src/tools/tg_lib/FastTelethon.py.bak
 bot/resources/prompts.json
 bot/resources/img_styles.json
 *.session*
+bot/src/tools/api_utils/model_indexer.py.shit
+bot/resources/apis/apis_normal.json.shit
+bot/src/tools/api_utils/call_tools/apis/stablehorde.py
+bot/src/tools/api_utils/call_tools/apis/imagine.py
+bot/src/tools/api_utils/call_tools/apis/opengpt/evagpt4.py

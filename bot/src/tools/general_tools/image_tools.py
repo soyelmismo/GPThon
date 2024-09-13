@@ -1,0 +1,76 @@
+from random import randint
+import bot.src.constants as c
+from io import BytesIO
+from PIL import Image
+from asyncio import gather
+from httpx import AsyncClient
+
+
+
+async def download_images_list(urls):
+    if not urls:
+        raise IndexError("No images received")
+    images = []
+    async with AsyncClient() as client:
+        tasks = [download_image(client, url) for url in urls]
+        images = await gather(*tasks)
+    return [img for img in images if img is not None]
+
+async def download_image(client, url):
+    response = await client.get(url)
+    if response.status_code == 200:
+        img_data, _ = await compress_image(response.content, black_check=True)
+        return img_data
+    return None
+
+
+
+async def compress_image(img, black_check = None, file_name = None, mime_type = None, quality = 95):
+    try:
+        if isinstance(img, Image.Image):  # Verifica si img ya es un objeto PIL.Image
+            image = img
+        else:
+            # Si img no es un objeto PIL.Image, conviértelo a BytesIO y ábrelo como imagen
+            img = BytesIO(img)
+            img.seek(0)
+            image = Image.open(img)
+
+        if black_check:
+            image_gray = image.convert('L')
+
+            if await is_black_image(image_gray):
+                raise Exception("Black image detected.")
+
+        img_bytes = BytesIO()
+
+        if mime_type == "webm" or mime_type not in c.allowed_image_mimetypes:
+            mime_type = "jpeg"
+
+        #if not black_check and image.width > 1000 or image.height > 1000:
+            #image.thumbnail((1000, 1000))
+
+
+        image.save(img_bytes, format=mime_type, quality=quality)
+        img_bytes.seek(0) # type: ignore
+
+        if not file_name:
+            random_id = randint(0, 99999999)
+            file_name = f'{random_id}.{mime_type}'
+            
+            img_bytes.name = file_name
+        return img_bytes, file_name
+    except Exception as e:
+        raise Exception(f'compress_image: {e}')
+
+async def is_black_image(image, block_size=1024):
+    width, height = image.size
+    
+    for y in range(0, height, block_size):
+        for x in range(0, width, block_size):
+            box = (x, y, min(x + block_size, width), min(y + block_size, height))
+            block = image.crop(box)
+            pixels = block.getdata()
+            if any(pixel != 0 for pixel in pixels):
+                return False 
+
+    return True 

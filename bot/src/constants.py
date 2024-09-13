@@ -1,15 +1,32 @@
 chat_models: dict[str, list] = {}
 chat_models_txt = ""
+embed_models: dict[str, list] = {}
+embed_models_txt = ""
 img_models: dict[str, list] = {}
 img_models_txt = ""
 whisper_models: dict[str, list] = {}
+
+
+speech_models: dict[dict[str, list]] = {}
+speech_voices: dict[str, str] = {}
+speech_voices_txt = ""
+
+not_yet_ready = 1
 
 img_styles: dict[str, str] = {}
 img_styles_txt = ""
 styles_str: str = ""
 
+session_default_chat_model = ""
+session_default_img_model = ""
+
 allowed_chat_mimetypes = ["plain", "javascript"]
 allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
+
+ERRFUNC = "Error retrieving function."
+FUNCNOARG = "Search arguments not found. Please ask the user what he want to search."
+
+tools_loaded = []
 
 colors = {
     'reset': '\033[0m',        # Reset (elimina los colores)

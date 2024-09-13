@@ -26,6 +26,7 @@ bot_name = str(env.get('BOT_NAME_COMMAND', ['hey'])[0]).lower().strip()
 command_chat = str(env.get('CHAT_COMMAND', ['/ask'])[0]).lower().strip()
 command_image = str(env.get('IMAGE_COMMAND', ['/img'])[0]).lower().strip()
 command_stt = str(env.get('STT_COMMAND', ['/stt'])[0]).lower().strip()
+command_transcribe = f'{command_stt}_auto'
 
 
 exclusive_api_name = str(env.get('EXCLUSIVE_API_NAME', [''])[0])
@@ -41,11 +42,14 @@ max_input_tokens = int(env.get('MAX_INPUT_TOKENS', [4096])[0])
 max_total_tokens = int(env.get('MAX_TOTAL_TOKENS', [8000])[0])
 
 default_stt_model = env.get('DEFAULT_STT_MODEL', ['whisper-large-v3'])[0]
+default_tts_voice = env.get('DEFAULT_TTS_VOICE', ['alloy'])[0]
+
 default_img_model = env.get('DEFAULT_IMAGE_MODEL', ['dall-e-3'])[0]
 default_vision_model = env.get('DEFAULT_VISION_MODEL', ['chatgpt-4o-latest'])[0]
 vision_max_images_seq = int(env.get('VISION_SEQUENCE_IMAGES', ['16'])[0])
 text_improve_model = env.get('DEFAULT_TEXT_IMPROVE_MODEL', ['gpt-3.5-turbo'])[0]
-
+default_tool_model = env.get('DEFAULT_TOOL_CALL_MODEL', ['gpt-3.5-turbo'])[0]
+default_embedding_model = env.get('DEFAULT_EMBEDDING_MODEL', ['text-embedding-ada-002'])[0]
 
 api_id = int(env.get('API_ID', [''])[0])
 

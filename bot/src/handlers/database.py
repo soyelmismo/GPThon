@@ -17,8 +17,7 @@ class IndexGroupInstances:
         self.redis = False
         self.r = None
         self.lock = Lock()
-        self.user_index = {}
-        self.group_index = {}
+        self.index = {}
         self.ttl = 2592000
         self.save_each = SAVE_MINUTES * 60
         self.loop = loop  # Use the existing event loop
@@ -51,45 +50,47 @@ class IndexGroupInstances:
     async def grab_class(self, chat_id= "", user_id= "", make_group=None, only_group = None):
         try:
             mng = None
-            indexed = None
             if chat_id != user_id:
-                if chat_id not in self.group_index:
+                if chat_id not in self.index:
                     mng = UserPrepare()
                     if self.redis:
                         mng = await self.quick_query(chat_id, mng)
                     async with self.lock:
-                        self.group_index[chat_id] = mng
+                        self.index[chat_id] = mng
                 else:
-                    mng = self.group_index[chat_id]
+                    mng = self.index[chat_id]
 
                 if make_group and only_group:
-                    mng.group_mode = True
-                    mng.user_id = user_id
-                    if not mng.owners:
-                        mng.owners.add(user_id)
-                    elif mng.owners:
-                        for owner_id in list(mng.owners):
-                            if owner_id in self.user_index:
-                                break
-                        else:
+                    async with self.lock:
+                        mng.group_mode = True
+                        mng.user_id = user_id
+                        if not mng.owners:
                             mng.owners.add(user_id)
+                        elif mng.owners:
+                            for owner_id in list(mng.owners):
+                                if owner_id in self.index:
+                                    break
+                            else:
+                                mng.owners.add(user_id)
 
                     return mng
                 if mng.group_mode:
-                    self.group_index[chat_id].last_seen = datetime.now()
+                    async with self.lock:
+                        self.index[chat_id].last_seen = datetime.now()
                     return mng
 
-            if user_id not in self.user_index:
+            if user_id not in self.index:
                 mng = UserPrepare()
                 mng.user_id = user_id
                 if self.redis:
                     mng = await self.quick_query(user_id, mng)
                 async with self.lock:
-                    self.user_index[user_id] = mng
+                    self.index[user_id] = mng
 
             else:
-                self.user_index[user_id].last_seen = datetime.now()
-                mng = self.user_index[user_id]
+                async with self.lock:
+                    self.index[user_id].last_seen = datetime.now()
+                mng = self.index[user_id]
 
             return mng
 
@@ -119,22 +120,18 @@ class IndexGroupInstances:
         if self.redis:
             keys = await self.r.keys('*')
         else:
-            keys = [*self.user_index.keys(), *self.group_index.keys()]
+            keys = [*self.index.keys()]
         accum = 0
         for key in keys:
             if self.redis:
                 id_data = await self.r.hgetall(key)
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
-                if key in self.user_index:
-                    last_seen = self.user_index[key].last_seen
-                elif key in self.group_index:
-                    last_seen = self.group_index[key].last_seen
-            if await date_calc(last_seen) > self.ttl:
-                if key in self.user_index:
-                    del self.user_index[key]
-                elif key in self.group_index:
-                    del self.group_index[key]
+                if key in self.index:
+                    last_seen = self.index[key].last_seen
+            if await date_calc(last_seen) > self.ttl and key in self.index:
+                async with self.lock:
+                    del self.index[key]
 
                 logger.info(f"Deleting ID {key} from database: TTL")
                 accum += 1
@@ -145,26 +142,16 @@ class IndexGroupInstances:
 
     async def flush_memory(self):
         """Backup all in-memory objects to Redis (and clear from memory?)."""
-        if self.redis:
-
-            # Save and remove all users from memory
+        if self.redis and len(self.index):
+            # Save and remove all chats from memory
             logger.info("Backup in-memory objects to Redis...")
-            if len(self.user_index):
-                logger.info("Detected users to backup.")
-                for user_id, user_obj in list(self.user_index.items()):
-                    await self.save_to_redis(user_id, await to_dict(user_obj))
-                    if save_db_bandwidth and user_id not in tasks.index_tasks:
-                        del self.user_index[user_id]  # Clear from in-memory once saved
-                    logger.info(f"User {user_id} uploaded")
+            for id, user_obj in list(self.index.items()):
+                await self.save_to_redis(id, await to_dict(user_obj))
+                if not save_db_bandwidth and id not in tasks.index_tasks:
+                    async with self.lock:
+                        del self.index[id]  # Clear from in-memory once saved
+                logger.info(f"Chat {id} uploaded")
 
-            # Save and remove all groups from memory
-            if len(self.group_index):
-                logger.info("Detected groups to backup.")
-                for group_id, group_obj in list(self.group_index.items()):
-                    await self.save_to_redis(group_id, await to_dict(group_obj))
-                    if save_db_bandwidth and group_id not in tasks.index_tasks:
-                        del self.group_index[group_id]
-                    logger.info(f"Group {group_id} uploaded")
         await self.remove_old_db_ids()
 
     async def flush_task(self, force = 0):
@@ -190,32 +177,32 @@ class IndexGroupInstances:
         try:
             logger.debug(f'Deleting id data: {id}')
             indexed_deletions = [id]
-            if id in self.user_index:
+            if id in self.index:
                 logger.debug(f'Removing user {id} from databases')
                 async with self.lock:
                     logger.debug(f'User found in index: {id}')
 
-                    for group in list(self.user_index[id].groups):
+                    for group in list(self.index[id].groups):
                         group_data = None
                         logger.debug(f'User have groups, deleting groups if possible: {id}')
-                        logger.debug(f'Checking for this group {group} in database: user {id}')
-                        if self.redis:
+                        logger.debug(f'Removing user {id} from group {group}')
+                        if group in self.index:
+                            group_data = self.index[group]
+                            if group_data:
+                                owners = self.index[group].owners
+                        elif self.redis:
+                            logger.debug(f'Checking for this group {group} in database: user {id}')
                             group_data = await self.r.hgetall(group)
-                            owners = set(loads(group_data["owners"])["value"])
-                        else:
-                            if group in self.group_index:
-                                group_data = self.group_index[group]
-                                owners = self.group_index[group].owners
+                            if group_data:
+                                owners = set(loads(group_data["owners"])["value"])
 
                         if group_data:
-                            logger.debug(f'Removing user {id} from group {group}')
                             owners.discard(id)
                             if not len(owners):
                                 logger.debug(f'Group {group} being deleted completely. No more users. Triggered by {id}')
-                                self.group_index.pop(group, None)
+                                self.index.pop(group, None)
                                 indexed_deletions.append(group)
-                    self.user_index.pop(id, None)
-                tasks.index_tasks.pop(id, None)
+                    self.index.pop(id, None)
                 if self.redis:
                     await self.r.delete(*indexed_deletions)
                 return 1
@@ -227,12 +214,11 @@ class IndexGroupInstances:
     async def burn_group(self, id: str):
         try:
             logger.debug(f'Deleting group data: {id}')
-            if id in self.group_index:
+            if id in self.index:
                 logger.debug(f'Removing group {id} from databases')
                 async with self.lock:
                     logger.debug(f'Group {id} being deleted completely.')
-                    del self.group_index[id]
-                tasks.index_tasks.pop(id, None)
+                    del self.index[id]
                 if self.redis:
                     await self.r.delete(id)
                 return 1

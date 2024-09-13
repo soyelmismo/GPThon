@@ -4,7 +4,10 @@ from . import *
 indexer = {
     command_chat: ask_gateway,
     command_stt: ask_gateway,
+    command_transcribe: ask_gateway,
+    "/tts": ask_gateway,
     "/vision": ask_gateway,
+    "/embed": ask_gateway,
     command_image: ask_gateway,
     "/rol": roleplay if roleplay_enabled else False,
     "/reset": reset_conversation,

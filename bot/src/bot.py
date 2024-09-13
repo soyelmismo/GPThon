@@ -1,11 +1,14 @@
-import bot.src.config as c
 from re import escape
-from asyncio import create_task, sleep
 from telethon import functions, types, events
-from bot.src.logs import logger
 from bot.src.handlers.gateway import gateway
-from bot.src.handlers.commands.tasks import monitor_tasks, cancel_callback, tasks_identifier
+from bot.src.handlers.commands.tasks import cancel_callback, tasks_identifier
+from asyncio import sleep
+
+import bot.src.config as conf
+from bot.src.logs import logger
+from bot.src.handlers.commands.tasks import monitor_tasks
 from bot.src.handlers.database import db
+from bot.src import constants as c
 
 try:
     from bot.src.tools.api_utils.model_indexer import models_grabber
@@ -15,25 +18,53 @@ except ImportError:
     logger.info("Any model can be set.")
 
 
-async def post_init():
-    
-    await db.initialize_redis()
-    c.bot.loop.create_task(db.flush_task())
-    c.bot.loop.create_task(monitor_tasks())
-    if models_grabber:
-        c.bot.loop.create_task(models_grabber()) # type: ignore
-
+async def register_events():
     logger.info("Adding commands...")
     commands_list = [
-        types.BotCommand("ask", "💬"),
-        types.BotCommand("stt", "🎤"),
-        types.BotCommand("img", "🎨"),
-        types.BotCommand("vision", "👁️"),
-    ]
-    if c.roleplay_enabled:
-        commands_list.append(types.BotCommand("rol", "🔞"))
+        types.BotCommand("ask", "💬")]
     
-    commands_list.extend([types.BotCommand("select", "🖕"),
+    
+    conf.bot.add_event_handler(cancel_callback, events.CallbackQuery(pattern=f'^{tasks_identifier}'))
+
+    conf.bot.add_event_handler(gateway, events.NewMessage(
+    pattern = r'(^' + conf.command_chat + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
+    ))
+    
+    conf.bot.add_event_handler(gateway, events.NewMessage(
+    pattern = r'(^/embed(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
+    ))
+
+    conf.bot.add_event_handler(gateway, events.NewMessage(
+    pattern = r'(^/tts(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
+    ))
+
+    if c.whisper_models:
+        commands_list.extend([types.BotCommand("stt", "🎤")])
+        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + conf.command_stt + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+
+    if c.img_models:
+        commands_list.extend([types.BotCommand("img", "🎨")])
+        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + conf.command_image + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+
+    commands_list.extend([types.BotCommand("vision", "👁️")])
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/vision(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+
+    if conf.roleplay_enabled:
+        commands_list.extend([types.BotCommand("rol", "🔞")])
+        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/rol(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+
+
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/select(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/retry(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/reset(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/help(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '(?s)^(?!/).*$'))
+
+    
+
+    commands_list.extend([
+            types.BotCommand("select", "🖕"),
             types.BotCommand("burnme", "🔥"),
             types.BotCommand("retry", "🔄"),
             types.BotCommand("reset", "⏮️"),
@@ -41,42 +72,38 @@ async def post_init():
 
             ]
     )
-
-    c.bot.loop.create_task(c.bot(functions.bots.SetBotCommandsRequest(
+    conf.bot.loop.create_task(conf.bot(functions.bots.SetBotCommandsRequest(
         scope = types.BotCommandScopeDefault(), 
         lang_code = '',
         commands = commands_list
     )))
+
+
+async def post_init():
+    
+    await db.initialize_redis()
+    conf.bot.loop.create_task(db.flush_task())
+    conf.bot.loop.create_task(monitor_tasks())
+    if models_grabber:
+        conf.bot.loop.create_task(models_grabber()) # type: ignore
+        while c.not_yet_ready:
+            logger.info("Waiting for models...")
+            await sleep(1)
+        logger.info("Initiated models!")
+    
+    await register_events()
     msg = "Bot running ✅"
-    c.bot.loop.create_task(c.send_logs_to_channel(msg))
+    conf.bot.loop.create_task(conf.send_logs_to_channel(msg))
     logger.info(msg)
+
 
 async def main():
     """Start the bot."""
-    c.bot.add_event_handler(cancel_callback, events.CallbackQuery(pattern=f'^{tasks_identifier}'))
-
-    c.bot.add_event_handler(gateway, events.NewMessage(
-    pattern = r'(^' + c.command_chat + r'(@' + escape(c.bot_data.username) + r')?(\s|$))' # type: ignore
-    ))
-
-    if c.roleplay_enabled:
-        c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/rol(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-
-
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_stt + r'(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/vision(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + c.command_image + r'(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/select(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/retry(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/reset(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/burnme(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/help(@' + escape(c.bot_data.username) + r')?(\s|$)')) # type: ignore
-    c.bot.add_event_handler(gateway, events.NewMessage(pattern = '(?s)^(?!/).*$'))
     await post_init()
-    await c.bot.run_until_disconnected()
+
+    await conf.bot.run_until_disconnected()
 
 def start_bot():
-    c.bot.loop.run_until_complete(main())
+    conf.bot.loop.run_until_complete(main())
     logger.info("Closing")
     

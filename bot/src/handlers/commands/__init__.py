@@ -1,6 +1,6 @@
 from bot.src.logs import logger
 from .. import (bot, bot_data, bot_prompts, command_image, rate_limit_handler, command_chat,
-                allowed_chat_mimetypes, get_id, max_input_tokens)
+                allowed_chat_mimetypes, get_id, max_input_tokens, allowed_image_mimetypes)
 from telethon.types import DocumentAttributeSticker, DocumentAttributeVideo
 
 async def edit_msg(event, placeholder_msg, text, buttons = None):
@@ -28,7 +28,7 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                     ok = 1
             if ok and msg_Mime:
                 mime = msg_Mime.split("/")[1]
-                sticker = f'\n*sent .{mime} '
+                sticker = f'\n*sent {mime} '
                 
                 if mime == "webm":
                     sticker += "animated sticker*"
