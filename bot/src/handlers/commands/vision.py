@@ -33,6 +33,7 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
     vision_response = await quick_chat_completion(self, user_id, self.vision_model)
     if not vision_response:
         await edit_msg(event, placeholder_msg, "📷😔❌")
-    if vision_response == "Cancelled":
+    elif vision_response == "Cancelled":
+        await placeholder_msg.delete()
         return None, file_meta
     return vision_response, file_meta

@@ -28,7 +28,7 @@ async def update_total_reqs(type, api, model, user_id, status, response = None, 
         logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ✅ {user_id}")
     else:
         api_reqs[api][1] += 1
-        create_task(send_logs_to_channel(f'Error message: {str(error)}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nTotal requests/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
+        create_task(send_logs_to_channel(f'Error message: {str(error)}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
 
 
 async def select_api_data(api):

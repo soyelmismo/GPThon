@@ -24,11 +24,11 @@ async def gotClass(cls, command, prompt):
     thisShit.prompt = prompt
     thisShit.photos = 1
     thisShit.temperature = 0.4 if command == command_stt else float(cls.temperature)
-    thisShit.stt_language = None
     thisShit.notification = ""
-    thisShit.summarize = bool(cls.summarize) or True
+    #thisShit.summarize = bool(cls.summarize) or True
     thisShit.used_tokens = 0
     thisShit.session_tokens = 0
-    thisShit.embedding_model = cls.embedding_model or default_embedding_model
-    thisShit.tool_model = cls.tool_model or default_tool_model
+    #thisShit.embedding_model = cls.embedding_model or default_embedding_model
+    #thisShit.tool_model = cls.tool_model or default_tool_model
+    thisShit.raw = False
     return thisShit

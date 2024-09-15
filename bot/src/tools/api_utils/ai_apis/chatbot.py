@@ -1,4 +1,4 @@
-from asyncio import create_task
+from asyncio import create_task, CancelledError
 from random import uniform
 from sys import _getframe
 from json import loads
@@ -7,7 +7,7 @@ from openai import APITimeoutError
 
 from bot.src.logs import logger
 from bot.src.tools.api_utils.ai_apis.shared_vars import total_tokens
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, command_chat
 
 from bot.src.tools.api_utils.call_tools.functions_extraction import get_openai_funcs
 
@@ -53,9 +53,9 @@ async def process_function_data(functions, payload):
         payload["messages"].append(
             {
             #"tool_call_id": func.id,
-            "role": "system",
+            "role": "user",
             #"name": f.name,
-            "content": response,
+            "content": f'resume this for user:\n{response}',
             })
 
     payload.pop("tools")
@@ -108,7 +108,7 @@ err = '✍️ 😔❌👍'
 async def request_chat_completion(thisShit, model, user_id, command):
     response = "placeholder_empty_response"
     try:
-        payload = await configure_payload(thisShit, model)
+        payload = await configure_payload(thisShit, model, command)
         
         logger.debug("Generating response...")
         temp_apis = await shuffle_apis(user_id, payload["model"], command)
@@ -117,7 +117,13 @@ async def request_chat_completion(thisShit, model, user_id, command):
                 logger.debug(f"Joining chat completion with {api}")
                 res_text = ""
                 client = await select_api_data(api)
-                response = await client.chat.completions.create(**payload)
+                try:
+                    response = await client.chat.completions.create(**payload)
+                except CancelledError as e:
+                    if "Cancelled by user." not in str(e):
+                        continue
+                    else:
+                        raise e
                 logger.debug(f'Response: {response} <---- Response')
 
                 resser = stream_type[thisShit.streaming]
@@ -156,6 +162,7 @@ async def request_chat_completion(thisShit, model, user_id, command):
                             yield err, "error"
                     elif outsider:
                         yield res_text, status
+
             except Exception as e:
                 await update_total_reqs(command, api, payload["model"], user_id, 0, response, e)
                 logger.error(f"Error with {api}: {str(e)}")
@@ -169,7 +176,7 @@ async def request_chat_completion(thisShit, model, user_id, command):
 
 
 
-async def configure_payload(thisShit, model):
+async def configure_payload(thisShit, model, command):
     logger.debug("Set-up chat payload")
     try:
 
@@ -181,7 +188,7 @@ async def configure_payload(thisShit, model):
             "seed": thisShit.seed,
             "timeout": 10 if thisShit.streaming else 20
         }
-        if thisShit.tool_call:
+        if thisShit.tool_call and command == command_chat:
             payload["tools"] = functions_data
             payload["tool_choice"] = "auto"
             payload["model"] = thisShit.tool_model

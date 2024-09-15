@@ -32,10 +32,9 @@ async def do_tts(thisShit, user_id, event, placeholder_msg, command):
         audio, status = await wait_for(responseapi.__anext__(), 60)
         if status == "fail":
             await edit_msg(event, placeholder_msg, audio)
-        
-    except CancelledError:
-        await placeholder_msg.delete()
-        return
+        elif status == "cancel":
+            await placeholder_msg.delete()
+            return status
     except Exception as e:
         logger.error(f'Error tts: {str(e)}')
         await edit_msg(event, placeholder_msg, "🗣 😔❌👍")

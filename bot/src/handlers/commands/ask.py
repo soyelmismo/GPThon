@@ -16,6 +16,7 @@ from . import bot, remove_command, extract_media, rate_limit_handler, command_ch
 from bot.src.tools.tg_tools import send_msg
 from bot.src.tools.api_utils.ai_apis import shared_vars as svars
 from bot.src.tools.api_utils.call_tools.backends.website_view import urls_wrapper
+from bot.src.tools.other_tools import calculate_token_length
 
 LOADING_CHOICES = ["😎", "😱", "😳", "🗿", "🥵",
                    "🫣", "🤑", "🫨", "🥱", "🙉",
@@ -39,30 +40,6 @@ async def ask_gateway(event, user_id, chat_id, command) -> None:
     return await class_to_call.request_wrap(event, user_id, command) # type: ignore
 
 
-async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
-    if transcription:
-        command = command_chat
-    thisShit = None
-    try:
-        prompt_list = None
-        placeholder_msg = None
-        c_button = await gcb(command_chat, task_id)
-        placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
-        if not prompt_list or not thisShit:
-            return None
-
-        if not placeholder_msg:
-            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
-
-        task = do_ask(self, thisShit, prompt_list, event, user_id, command, placeholder_msg, task_id, c_button)
-        msg = await add_task(command_chat, user_id, task, task_id)
-        if msg == "CantAddMore":
-            await edit_msg(event, placeholder_msg, text = "🫸🫨🫷")
-        return
-    except Exception as e:
-        logger.error(f"ask_wrap: {str(e)}")
-
-
 async def extract_prompt(self, event, user_id, command, transcription, buttons, file_meta = {}):
     placeholder_msg = None
     try:
@@ -77,7 +54,7 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
                     await event.reply("❓")
                 return None, None, None
 
-            
+
             if file_meta["type"] == "image":
                 command = "/vision"
             
@@ -88,16 +65,20 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
             file_meta["type"] = "transcription"
         from bot.src.tools.params.inference_params import extract_arguments
         thisShit = await extract_arguments(self, event, prompt, command, user_id, file_meta=file_meta)
+
         if not thisShit:
             return None, None, None
+        else:
+            prompt = thisShit.prompt
         if self.group_mode:
-            prompt = f'{await group_mode_data_fetch(self, event)}: {prompt}'
+            prompt = f'{await group_mode_data_fetch(self, event)} says: {prompt}'
         list_convo = []
         if self.tool_call:
             
             urls_dicts = await urls_wrapper(prompt)
             if urls_dicts:
                 list_convo.extend(urls_dicts)
+            
         list_convo.append({"role": "user", "content": prompt})
         if file_meta["type"] == "image":
             logger.debug(f'{str(event.chat_id)}, {user_id}, {command}')
@@ -122,36 +103,27 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
         raise Exception (f"extract_prompt: {str(e)}")
 
 async def handle_summarize(self, user_id, conversation_text = None):
+    from bot.src.tools.params.mini_tools import get_conversation
     try:
         logger.info("Trying to summarize the conversation.")
-        from bot.src.tools.params.mini_tools import get_conversation
         tempbak = float(self.temperature)
         latest_msgs = []
         if len(self.conversation) > 5:
+            #for msg in self.conversation:
+                #if msg["role"] in ["user"]:
+                    
             latest_msgs = self.conversation[-5:]
-        latest_msgs.append(self.conversation[-1:][0])
-        conversation_text = await get_conversation(self, user_id=user_id, summary=True)
+        else:
+            latest_msgs = self.conversation[-1:]
+        #latest_msgs.append(self.conversation[-1:][0])
+        conversation_context = await get_conversation(self, user_id=user_id, summary=True)
         await self.delete_conversation(summarized = 1)
         self.temperature = tempbak
-        self.conversation.append({"role": "system", "content": f'context:\n\n{conversation_text}'})
+        self.conversation.append(conversation_context)
         self.conversation.extend(latest_msgs)
         return conversation_text
     except Exception as e:
         raise Exception(f'handle_summarize: {str(e)}')
-
-
-
-from tiktoken import get_encoding
-enc = get_encoding("cl100k_base")
-async def calculate_token_length(conversation):
-    total_tokens = 0
-    for msg in conversation:
-        # Calcular los tokens del contenido del mensaje
-        total_tokens += len(enc.encode(msg["content"]))
-        # Considerar tokens adicionales para otros campos como "role"
-        total_tokens += len(enc.encode(msg["role"]))
-    return total_tokens
-
 
 
 async def tokens_counter(self, user_id):
@@ -221,8 +193,13 @@ async def handle_api_response(self, event, responseapi, placeholder_msg, task_id
             try:
                 try:
                     response, status = await wait_for(responseapi.__anext__(), timeout=60)
-                except:  # noqa: E722
-                    raise
+                    if status == "cancel":
+                        await placeholder_msg.delete()
+                        chat_pending = False
+                        return None, None, None
+
+                except Exception as e:  # noqa: E722
+                    raise e
 
                 end_time = time()
                 time_diff = end_time - start_time
@@ -235,11 +212,7 @@ async def handle_api_response(self, event, responseapi, placeholder_msg, task_id
                     if len(response) > 1:
                         placeholder_msg = await process_response_chunk(event, response, done_parts, placeholder_msg, status, c_button)
                     await sleep(0.03)
-                    start_time = time()
-            except CancelledError:
-                await placeholder_msg.delete()
-                chat_pending = False
-                return
+                    start_time = time()                
             except StopAsyncIteration:
                     
                 if not response:
@@ -247,6 +220,8 @@ async def handle_api_response(self, event, responseapi, placeholder_msg, task_id
                 if command == "/embed":
                     await process_embeddings_file(self, event, response)
                 else:
+                    if self.debug:
+                        response = f'{response}\n\n```\nmodel: {self.chat_model}\n```'
                     placeholder_msg = await process_response_chunk(event, response, done_parts, placeholder_msg, status, c_button)
                     if status not in ["error"]:
                         await update_conversation_history(self, response)
@@ -290,9 +265,35 @@ async def update_conversation_history(self, response):
     except Exception as e:
         raise Exception(f"update_conversation_history: {str(e)}")
 
-async def do_ask(self, thisShit, prompt_list, event, user_id, command, placeholder_msg, task_id, c_button):
-    
+async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
+    if transcription:
+        command = command_chat
+    thisShit = None
     try:
+        
+        task = do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id)
+        msg = await add_task(command_chat, user_id, task, task_id)
+        if not msg: return
+        elif msg == "CantAddMore":
+            await send_msg(event, text = "🫸🫨🫷")
+        return
+    except Exception as e:
+        logger.error(f"ask_wrap: {str(e)}")
+
+
+async def do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id):
+    prompt_list = None
+    placeholder_msg = None
+
+    try:
+        c_button = await gcb(command_chat, task_id)
+        placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
+        if not prompt_list or not thisShit:
+            return None
+
+        if not placeholder_msg:
+            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
+
         logger.debug(command)
 
         
@@ -307,28 +308,32 @@ async def do_ask(self, thisShit, prompt_list, event, user_id, command, placehold
         else:
             model = thisShit.chat_model
 
-        if command == "/retry":
+        if command in ["/retry", "/vision"]:
             command = command_chat
+
 
         logger.debug("Calling api")
         responseapi = gptools.call_api(thisShit, command, user_id, media = None, model = model)
         logger.debug("Continuing api processing")
-        placeholder_msg, response, status = await handle_api_response(self, event, responseapi, placeholder_msg, task_id, c_button, command)
+        placeholder_msg, response, status = await handle_api_response(thisShit, event, responseapi, placeholder_msg, task_id, c_button, command)
+        if not placeholder_msg and not response and not status:
+            return None
         if command == "/embed":
             await placeholder_msg.delete()
         elif self.to_tts and status not in ["error"]:
             await tts_wrap(thisShit, event, user_id, "/tts", task_id, bot_response = response)
 
-    except Exception as e:
-        raise Exception(f"do_ask: {str(e)}")
-    finally:
+
         self.conversation = thisShit.conversation
         self.used_tokens += thisShit.used_tokens or 0
         svars.total_tokens += thisShit.used_tokens or 0
         self.session_tokens = (await calculate_token_length(self.conversation))
-        logger.info(f"💰 {svars.total_tokens} 💰")
+        if response:
+            logger.info(f"💰 {svars.total_tokens} 💰")
         if not self.memory:
             await self.delete_conversation(event, user_id)
+    except Exception as e:
+        raise Exception(f"do_ask: {str(e)}")
 
 async def gen_random_name(length=6):
     try:

@@ -2,6 +2,9 @@ from bot.src.logs import logger
 from .. import (bot, bot_data, bot_prompts, command_image, rate_limit_handler, command_chat,
                 allowed_chat_mimetypes, get_id, max_input_tokens, allowed_image_mimetypes)
 from telethon.types import DocumentAttributeSticker, DocumentAttributeVideo
+from re import search
+from asyncio import CancelledError
+
 
 async def edit_msg(event, placeholder_msg, text, buttons = None):
     return await event.client.edit_message(entity = event.chat_id, message = placeholder_msg, text = text, buttons = buttons)
@@ -54,6 +57,9 @@ async def remove_command(conversation, event, bot_command = "") -> str:
 
         if replied.message:
             replied = str(replied.message).strip()
+            if "✍️" in replied and "👗" in replied:
+                replied = search('(?s)(?=[^✍️ ])(.*?)(?=\n👗)', replied)
+                replied = replied.group(1).strip()
             if replied.startswith(bot_command):
                 replied = str(replied).replace(longrep, "").strip()
                 replied = str(replied).replace(bot_command, "").strip()
@@ -62,18 +68,20 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 message = str(f"\n> {replied}\n\n{message}")
             elif bot_command == command_image:
                 message = str(f"{replied} {message}").strip()
+            elif bot_command == "/select":
+                message = str(f"{message} {replied}").strip()
     if sticker:
         message = f"{message}{sticker}"
     return message
 
 
-MAX_DOWNLOAD_MB = 2 * 1024 * 1024
+MAX_DOWNLOAD_MB = 25 * 1024 * 1024
 
-async def extract_media(event, file_data, placeholder_msg = None) -> dict:
+async def extract_media(event, file_data, placeholder_msg = None, buttons = None) -> dict:
     try:
         if file_data["size"] < MAX_DOWNLOAD_MB:
             async def download_progress(current, total):
-                await edit_msg(event = event, placeholder_msg = placeholder_msg, text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: `{'{:.2%}'.format(current / total)}`")
+                await edit_msg(event = event, placeholder_msg = placeholder_msg, text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: `{'{:.2%}'.format(current / total)}`", buttons=buttons)
 
             if file_data.get("file"):
                 if placeholder_msg:
@@ -84,7 +92,11 @@ async def extract_media(event, file_data, placeholder_msg = None) -> dict:
                     file_data["file"] = file_data["file"].decode("utf-8")
                     logger.debug(file_data["file"])
                 return file_data
-        raise Exception("Error in extract_media.")
+        else:
+            raise FileNotFoundError("File is too big.")
+    except CancelledError as e:
+        if "Cancelled by user." in str(e):
+            return "Task_cancellled"
     except Exception as e:
         logger.error(f"Error in extract_media: {str(e)}")
         return file_data

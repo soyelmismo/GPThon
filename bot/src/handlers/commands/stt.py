@@ -18,33 +18,37 @@ async def stt_wrap(self, event, user_id, task_id, command = command_stt):
     from bot.src.tools.params.inference_params import extract_arguments
     placeholder_msg = None
     thisShit = None
+    buttons = None
     file_meta = await check_media_type(event)
     
     prompt = await remove_command(self.conversation, event, command)
     thisShit = await extract_arguments(self, event, prompt, command, user_id, file_meta = file_meta)
     if file_meta["type"] == "audio":
-        placeholder_msg = await event.reply("🤔🎤, 🖐️⏳...", buttons = await gcb(command, task_id))
-        file_meta = await extract_media(event, file_meta, placeholder_msg)
+        buttons = await gcb(command, task_id)
+        placeholder_msg = await event.reply("🤔🎤, 🖐️⏳...", buttons = buttons)
     if not placeholder_msg:
         return None
-    task = do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command)
-    msg = await add_task(command, user_id, task, task_id)
+    task = do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command, buttons)
+    msg = await add_task(command_stt, user_id, task, task_id)
     if msg == "CantAddMore":
         await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return msg
 
 
-async def do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command):
-
+async def do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command, buttons = None):
+    transcribed = None
     try:
 
         async with event.client.action(entity=event.chat_id, action='typing'):
-            transcribed = None
-            await edit_msg(event, placeholder_msg, "🔽🆗, 🖐️⏳...")
-            transcribed = await process_audio(thisShit, event, user_id, placeholder_msg, file_meta=file_meta, command = command)
-            if transcribed == "Cancelled":
+            file_meta = await extract_media(event, file_meta, placeholder_msg, buttons)
+            if isinstance(file_meta, str) and file_meta == "Task_cancellled":
+                await placeholder_msg.delete()
                 return None
-            if len(transcribed) > 4080:
+            await edit_msg(event, placeholder_msg, "🔽🆗, 🖐️⏳...", buttons)
+            transcribed = await process_audio(thisShit, event, user_id, placeholder_msg, file_meta=file_meta, command = command, buttons = buttons)
+            if str(transcribed) == "Cancelled":
+                return None
+            if isinstance(transcribed, str) and len(transcribed) > 4080:
                 await placeholder_msg.delete()
                 chunks = [transcribed[i:i+4080] for i in range(0, len(transcribed), 4080)]
                 for i, chink in enumerate(chunks):
@@ -60,7 +64,7 @@ async def do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command):
         await edit_msg(event, placeholder_msg, text = "🎤 😔❌👍")
         return None
 
-async def process_audio(thisShit, event, user_id, placeholder_msg, file_meta, command):
+async def process_audio(thisShit, event, user_id, placeholder_msg, file_meta, command, buttons):
     try:
         logger.debug("Recibido audio!")
         media = None
@@ -73,17 +77,16 @@ async def process_audio(thisShit, event, user_id, placeholder_msg, file_meta, co
 
         if media:
             media = [triggered, media]
-            await edit_msg(event, placeholder_msg, "✍️🎤...")
-            try:
-                responseapi = gptools.call_api(thisShit, command = command, user_id=user_id, media = media)
-                response, status = await wait_for(responseapi.__anext__(), 60) # type: ignore
-                if status == "done":
-                    return response
-                elif status == "fail":
-                    await edit_msg(event, placeholder_msg, "🎤 😔❌👍")
-            except CancelledError:
+            await edit_msg(event, placeholder_msg, "✍️🎤...", buttons)
+            responseapi = gptools.call_api(thisShit, command = command, user_id=user_id, media = media)
+            response, status = await wait_for(responseapi.__anext__(), 60) # type: ignore
+            if status == "stop":
+                return response
+            elif status == "fail":
+                await edit_msg(event, placeholder_msg, "🎤 😔❌👍")
+            elif status == "cancel":
                 await placeholder_msg.delete()
-                return "Cancelled"
+                return response
 
     except Exception as e:
         raise Exception(f'process_audio: {str(e)}')

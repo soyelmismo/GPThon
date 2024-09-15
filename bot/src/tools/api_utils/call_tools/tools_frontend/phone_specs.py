@@ -4,9 +4,10 @@ from bot.src.tools.api_utils.call_tools.functions_extraction import openaifunc
 from bot.src.tools.api_utils.call_tools.backends import smart_gsm
 
 @openaifunc
-async def search_smartphone_info(model: str) -> str:
+async def search_smartphone_specs(model: str) -> str:
     """
-    Receives the device name and makes a search in the smart_gsm website returning all the device info.
+    Receives the device name and makes a search in the smart_gsm website returning all the device specifications.
+    Inform the user in a detailed way the features of the device.
 
     Args:
         model (str): only the device model, without extra text.

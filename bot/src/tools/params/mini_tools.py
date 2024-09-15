@@ -118,7 +118,7 @@ async def max_value_param(arg, value):
         elif arg in ["presence_penalty", "presence_penalty"]:
             pmin, pmax = -2, 2
         else:
-            pmin, pmax = 512, max_input_tokens
+            pmin, pmax = 1024, max_input_tokens
         value = min(max(value, pmin), pmax)
     except Exception as e:
         e = f"{_getframe().f_code.co_name}: {str(e)}"
@@ -175,31 +175,6 @@ async def p_models(thisShit, arg, value):
         setattr(thisShit, arg, value)
 
 
-async def get_conversation(thisShit, user_id = None, summary = None):
-    try:
-        t_convo = ""
-        for item in thisShit.conversation:
-            role = item.get("role", " ")
-            emoji = role_emojis.get(role, '')
-            if role == "system" and thisShit.roleplaying:
-                content = "*Roleplay*"
-            else:
-                content = item.get("content", "")
-            if role == "tool":
-                emoji = f'{emoji} [{item.get("name", "")}]'
-            t_convo += f"{emoji}: {content}\n\n"
-        if summary:
-            thisShit.conversation = [{"role": "system", "content": bot_prompts.get("summarizer", "").replace("{input}", t_convo)}]
-            thisShit.temperature = 1.28
-            summarized = await oai.quick_chat_completion(thisShit, user_id=user_id, model="llama3-8b-8192")
-            return summarized
-        convo = BytesIO()
-        convo.name = '🖨️.txt'
-        convo.write(t_convo.encode('utf-8'))
-        return convo
-    except Exception as e:
-        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-
 async def p_sysprompt(cls, thisShit, value, event, user_id):
     try:
         if thisShit.roleplaying:
@@ -211,6 +186,7 @@ async def p_sysprompt(cls, thisShit, value, event, user_id):
                 thisShit.sysprompt = str(value)
             else:
                 thisShit.sysprompt = str(value)
+            cls.sysprompt = thisShit.sysprompt
         else:
             value = cls.sysprompt
 

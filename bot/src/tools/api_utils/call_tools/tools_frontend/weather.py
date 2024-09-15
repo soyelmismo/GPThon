@@ -5,6 +5,8 @@ from bot.src.tools.api_utils.call_tools.backends import wttr
 async def lookup_weather(location: str, unit: str) -> str:
     """
     Search actual weather info.
+    The user ask for weather and you search here for the city he requested.
+    You give detailed information about the actual weather.
 
     Args:
         location (str): the city. mandatory.

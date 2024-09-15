@@ -25,10 +25,9 @@ async def img_wrap(self, event, user_id, command, task_id):
 
 async def do_img(thisShit, user_id, event, placeholder_msg, command):
     images = None
-    try:
-        responseapi = gptools.call_api(thisShit, command = command, user_id = user_id)
-        images, _ = await wait_for(responseapi.__anext__(), 60)
-    except CancelledError:
+    responseapi = gptools.call_api(thisShit, command = command, user_id = user_id)
+    images, status = await wait_for(responseapi.__anext__(), 60)
+    if status == "cancel":
         await placeholder_msg.delete()
         return
 
@@ -36,9 +35,16 @@ async def do_img(thisShit, user_id, event, placeholder_msg, command):
         async with event.client.action(entity=event.chat_id, action='photo'):
             
             caption = await make_caption(thisShit)
-            await event.reply(caption,
+            if thisShit.raw:
+                ForceFile = True
+            else:
+                ForceFile = False
+
+            await send_msg(event,
+                           caption,
                             file=images,
-                            force_document=False,
+                            force_document=ForceFile,
+                            disable_delete=True
                             )
             await placeholder_msg.delete()
 

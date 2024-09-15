@@ -5,6 +5,7 @@ from bot.src.config import (bot_data, bot_name, whitelist_chat_ids, blacklist_ch
                             )
 from asyncio import sleep
 from telethon.errors.rpcerrorlist import MessageDeleteForbiddenError
+from io import BytesIO
 
 
 command_list = [command_chat,
@@ -102,7 +103,7 @@ async def whitelist_check(event):
 
 
 async def quick_msg(event, text = None,  file = None, force_document = None):
-    if file:
+    if file and isinstance(file, BytesIO):
         file.seek(0)
     return await event.reply(text, file = file, force_document = force_document)
 

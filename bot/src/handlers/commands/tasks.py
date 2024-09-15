@@ -64,7 +64,7 @@ async def add_task(task_type, user_id, task, task_id):
             return await task_wrapper
             # logger.info(f"Task {task_type} - Task ID: {task_id} - User: {user_id} - Finished.")
         except CancelledError:
-            task_wrapper.cancel()
+            task_wrapper.cancel(msg="Cancelled by user.")
             logger.info(f"Task {task_type} - Task ID: {task_id} - User: {user_id} - Cancelled.")
         except Exception as e:
             logger.info(f"Error in task: {task_type} - Task ID: {task_id} - User: {user_id}: {e}")
@@ -89,8 +89,8 @@ async def cancel_task(task_type, user_id, task_id):
                 logger.info(f"No task found {task_id}")
                 message = "❓ 🤔 ❌"
             else:
-                logger.info(f"Cancelling {task_id}")
-                task.cancel()
+                logger.info(f"Cancelling {task_type} {task_id}")
+                task.cancel(msg="Cancelled by user.")
                 await task
         except ModuleNotFoundError:
             message = "🤡"

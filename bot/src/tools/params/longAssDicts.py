@@ -14,14 +14,9 @@ from bot.src.tools.api_utils import apis_frontend as oai
 from io import BytesIO
 from hashlib import sha1
 from re import compile, findall
+from bot.src.tools.other_tools import get_conversation
 
 
-role_emojis = {
-    "system": "🗿",
-    "user": "🥸",
-    "assistant": "🤖",
-    "tool": "🧰"
-}
 
 img_ratios = {
     "1x1": "1024x1024",
@@ -43,12 +38,12 @@ all_args = {
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
-        "to_tts", "tts_voice"
+        "to_tts", "tts_voice", "debug", "raw"
         ],
 
     "/select": [
         "streaming", "memory", "randomizer", "answer_stt", "chat_model", "img_model", "sysprompt",
-        "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens",
+        "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens", "debug",
         "status", "seed", "download", "group_mode", "random_names", "summarize",
         "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
         "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice"
@@ -57,13 +52,13 @@ all_args = {
 
     command_chat: [
         "streaming", "randomizer",
-        "chat_model", "vision_model", "temperature", "top_p", "frequency_penalty", "presence_penalty",
-        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice"
+        "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
+        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model"
         ],
 
 
     command_image: [
-        "img_model", "photos", "style_name", "improve_prompt", "improve_model", "ratio"
+        "img_model", "photos", "style_name", "improve_prompt", "improve_model", "ratio", "raw"
         ],
 
 
@@ -124,7 +119,8 @@ shortened_args = {
     "tool": "tool_call",
     "tm": "tool_model",
     "voice": "tts_voice",
-    "ttts": "to_tts"
+    "ttts": "to_tts",
+    "d": "debug"
 }
 
 allowed_no_value = [
@@ -133,11 +129,13 @@ allowed_no_value = [
 "img_model", "group_mode", "random_names", "streaming",
 "memory", "randomizer", "answer_stt", "improve_prompt",
 "summarize", "transcribe", "tool_call", "to_tts",
-"tts_voice"
+"tts_voice", "debug", "raw"
 
 ]
 
-allowed_in_groups = ["status", "download", "answer_stt", "stt_language", "transcribe", "stt_language"]
+allowed_in_groups = ["status", "download", "answer_stt",
+                     "stt_language", "transcribe", "stt_language",
+                     "raw"]
 
 warnings = {
     "/select": f"⚙️👎🫵 {', '.join(f'`.{arg}`' for arg in all_args["/select"])}",

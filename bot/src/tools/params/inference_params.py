@@ -52,7 +52,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 value = await p_sysprompt(cls, thisShit, value, event, user_id)
                 if thisShit.warning:
                     break
-            case "streaming" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts":
+            case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw":
                 await p_auto_bool(thisShit, arg, value)
 
             case "chat_model" | "img_model" | "improve_model" | "vision_model" | "embedding_model" | "tool_model" | "tts_voice":

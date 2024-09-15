@@ -32,10 +32,11 @@ async def request_embedding(thisShit, model, user_id, command):
                         client = await select_api_data(api)
                         try:
                             response = await client.embeddings.create(**payload)
-                        except Exception as e:
-                            logger.error(f'embedding error with {api} and {model}: {str(e)}')
-                            continue
-
+                        except CancelledError as e:
+                            if "Cancelled by user." not in str(e):
+                                continue
+                            else:
+                                raise e
                         res_text = response.data[0].embedding
                         if not res_text:
                             raise ValueError(f'"{res_text}" inexistent')

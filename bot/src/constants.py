@@ -24,7 +24,7 @@ allowed_chat_mimetypes = ["plain", "javascript"]
 allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
 
 ERRFUNC = "Error retrieving function."
-FUNCNOARG = "Search arguments not found. Please ask the user what he want to search."
+FUNCNOARG = "Search arguments not found. Ask the user what he want to search."
 
 tools_loaded = []
 

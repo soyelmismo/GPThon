@@ -145,12 +145,15 @@ class IndexGroupInstances:
         if self.redis and len(self.index):
             # Save and remove all chats from memory
             logger.info("Backup in-memory objects to Redis...")
+            exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
                 await self.save_to_redis(id, await to_dict(user_obj))
-                if not save_db_bandwidth and id not in tasks.index_tasks:
+                msg = f"Chat {id} uploaded"
+                if not save_db_bandwidth and id not in tasks.index_tasks and (exec_date - self.index[id].last_seen).total_seconds() > 60:
                     async with self.lock:
                         del self.index[id]  # Clear from in-memory once saved
-                logger.info(f"Chat {id} uploaded")
+                        msg += " and deleted locally."
+                logger.info(msg)
 
         await self.remove_old_db_ids()
 
@@ -257,7 +260,7 @@ async def to_dict(obj):
                 raise ValueError(f"Unsupported value type: {type(value)}")
         return data
     except Exception as e:
-        logger.error(f'Error in to_dict: {str(e)}')
+        logger.error(f'Error in to_dict: {str(e)}\n\nKey: {key}:\nValue: {value}')
 
 async def date_calc(old_date, return_str = False):
     if not isinstance(old_date, datetime):

@@ -7,25 +7,25 @@ from httpx import AsyncClient
 
 
 
-async def download_images_list(urls):
+async def download_images_list(urls, thisShit = None):
     if not urls:
         raise IndexError("No images received")
     images = []
     async with AsyncClient() as client:
-        tasks = [download_image(client, url) for url in urls]
+        tasks = [download_image(client, url, thisShit) for url in urls]
         images = await gather(*tasks)
     return [img for img in images if img is not None]
 
-async def download_image(client, url):
+async def download_image(client, url, thisShit = None):
     response = await client.get(url)
     if response.status_code == 200:
-        img_data, _ = await compress_image(response.content, black_check=True)
+        img_data, _ = await compress_image(response.content, black_check=True, thisShit = thisShit)
         return img_data
     return None
 
 
 
-async def compress_image(img, black_check = None, file_name = None, mime_type = None, quality = 95):
+async def compress_image(img, black_check = None, file_name = None, mime_type = None, quality = 95, thisShit = None):
     try:
         if isinstance(img, Image.Image):  # Verifica si img ya es un objeto PIL.Image
             image = img
@@ -49,6 +49,9 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
         #if not black_check and image.width > 1000 or image.height > 1000:
             #image.thumbnail((1000, 1000))
 
+        if thisShit and thisShit.raw:
+            quality = 100
+            mime_type = "png"
 
         image.save(img_bytes, format=mime_type, quality=quality)
         img_bytes.seek(0) # type: ignore

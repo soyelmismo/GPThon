@@ -16,7 +16,7 @@ status_blacklist: list = ["conversation",
                        "whisper_model", "whisper_api",
                        "img_api", "sysprompt", "user_id",
                        "user_ids_index", "embedding_model",
-                       "owners", "last_seen",
+                       "owners", "last_seen", "debug",
                        "tool_model", "to_tts", "tts_voice"
                     ]
 
@@ -55,6 +55,7 @@ class UserPrepare():
         self.owners: set = set()
         self.user_ids_index: dict = dict()
         self.last_seen: datetime = datetime.now()
+        self.debug: bool = False
         self.conversation: list[dict] = self.get_custom_sysprompt()
 
     async def from_dict(self, data):
@@ -112,7 +113,7 @@ class UserPrepare():
     def get_custom_sysprompt(self) -> list[dict]:
         new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
         if self.tool_call:
-            
+
             new_system += f"\n\nRemember to use ({", ".join(f'"{tool}"' for tool in co.tools_loaded)}) "
             new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
 

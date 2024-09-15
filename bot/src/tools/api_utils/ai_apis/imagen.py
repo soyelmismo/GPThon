@@ -26,14 +26,20 @@ async def generate_image(thisShit, model, user_id, command):
                         temp_prompt = thisShit.prompt
 
                     client = await select_api_data(img_api)
-                    response = await client.images.generate(
-                        model=model,
-                        prompt=temp_prompt,
-                        size=thisShit.ratio,
-                        n=thisShit.photos,
-                        quality="hd",
-                        timeout=60
-                    )
+                    try:
+                        response = await client.images.generate(
+                            model=model,
+                            prompt=temp_prompt,
+                            size=thisShit.ratio,
+                            n=thisShit.photos,
+                            quality="hd",
+                            timeout=60
+                        )
+                    except CancelledError as e:
+                        if "Cancelled by user." not in str(e):
+                            continue
+                        else:
+                            raise e
                     logger.debug(response)
 
                     if not isinstance(response, str):
@@ -42,7 +48,7 @@ async def generate_image(thisShit, model, user_id, command):
                         if isinstance(images, list):
                             for i in images:
                                 img_list.append(i.url)
-                        img_list = await download_images_list(img_list)
+                        img_list = await download_images_list(img_list, thisShit)
                         img_prompt = response.data[0].revised_prompt or thisShit.prompt
                     logger.debug(img_list)
 
@@ -59,4 +65,7 @@ async def generate_image(thisShit, model, user_id, command):
                     continue
             else:
                 logger.error(f"all apis for imagen, {model} failed.")
+                img_pending = False
+        else:
+            img_pending = False
     yield "🎨 😔❌👍", "fail"

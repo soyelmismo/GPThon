@@ -27,15 +27,21 @@ async def request_transcription(thisShit, media, user_id, command):
                         if triggered:
                             media.seek(0)
                         client = await select_api_data(api)
-                        response = await client.audio.transcriptions.create(
-                            model=model,
-                            file=("voice.ogg", media),
-                            response_format="text",
-                            temperature = thisShit.temperature,
-                            language = thisShit.stt_language,
-                            prompt = thisShit.prompt,
-                            timeout=60
-                        )
+                        try:
+                            response = await client.audio.transcriptions.create(
+                                model=model,
+                                file=("voice.ogg", media),
+                                response_format="text",
+                                temperature = thisShit.temperature,
+                                language = thisShit.stt_language,
+                                prompt = thisShit.prompt,
+                                timeout=60
+                            )
+                        except CancelledError as e:
+                            if "Cancelled by user." not in str(e):
+                                continue
+                            else:
+                                raise e     
                         logger.debug(response)
                         if not isinstance(response, str):
                             response = response.text
@@ -44,7 +50,8 @@ async def request_transcription(thisShit, media, user_id, command):
 
                         logger.debug("Received, yielding")
                         await update_total_reqs(command, api, model, user_id, 1)
-                        yield response, "done"
+                        yield response, "stop"
+                        stt_pending = False
 
                     except CancelledError:
                         stt_pending = False
@@ -53,8 +60,7 @@ async def request_transcription(thisShit, media, user_id, command):
                         await update_total_reqs(command, api, model, user_id, 0, response, e)
                         logger.error(f'getting request_transcription {api}: {str(e)}. Continuing with other api...')
                         continue
-                    stt_pending = False
-                else:
-                    yield "Off fail", "fail"
+            else:
+                stt_pending = False
     except Exception as e:
         raise ConnectionAbortedError(f"transcribe_audio exception: {str(e)}... {response}")

@@ -39,6 +39,7 @@ async def clean_device_data(text):
     specs = specs.group(1).strip() if specs else "Specs not found."
     name = name.group(1).strip() if name else "Name not found."
     desc = desc.group(1).strip() if desc else "Description not found."
+    vyd = vyd.group(1).strip() if desc else "Pros and cons not found."
     
     merge = f'"Name": {name}\n\n"Description": {desc}\n\n"Specifications": {specs}\n\n"Pros and Cons: {vyd}\n'
     return sub(r"[|#*-]", "", merge)

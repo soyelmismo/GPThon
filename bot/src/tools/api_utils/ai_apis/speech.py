@@ -20,14 +20,20 @@ async def request_text_to_speech(thisShit, user_id, command):
                     try:
                         logger.debug(f"Joining transcription with {api_try}")
                         client = await select_api_data(api_try)
-                        response = await client.audio.speech.create(
-                            input=thisShit.prompt,
-                            model=model,
-                            voice=thisShit.tts_voice or default_tts_voice,
-                            response_format="mp3",
-                            speed=1.1,
-                            timeout=15
-                        )                        
+                        try:
+                            response = await client.audio.speech.create(
+                                input=thisShit.prompt,
+                                model=model,
+                                voice=thisShit.tts_voice or default_tts_voice,
+                                response_format="mp3",
+                                speed=1.1,
+                                timeout=15
+                            )             
+                        except CancelledError as e:
+                            if "Cancelled by user." not in str(e):
+                                continue
+                            else:
+                                raise e           
                     
                         logger.debug(response)
 
@@ -36,10 +42,10 @@ async def request_text_to_speech(thisShit, user_id, command):
                         audio = BytesIO()
                         audio.name = f'{thisShit.prompt[:10]}...tts.mp3'
                         audio.write(response.content)
-                        yield audio, "done"
-                    except CancelledError:
+                        yield audio, "stop"
+                    except CancelledError as e:
                         tts_pending = False
-                        raise
+                        raise e
                     except Exception as e:
                         await update_total_reqs(command, api_try, model, user_id, 0, response, e)
                         logger.error(f"Error with {api_try}: {str(e)}")

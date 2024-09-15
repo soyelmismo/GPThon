@@ -5,7 +5,7 @@ from sys import _getframe
 banned_attr = [
     "warning", "style_data", "style_name", "prompt",
     "ratio", "photos", "notification", "used_tokens",
-    "session_tokens"
+    "session_tokens", "raw"
 ]
 
 @rate_limit_handler(3, 60)
