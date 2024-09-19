@@ -67,10 +67,10 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                     yield response, status
 
             elif command == command_image:
-                async for response, status in generate_image(self, model, user_id, command):
+                async for response, reso, status in generate_image(self, model, user_id, command):
                     if status:
                         trying = False
-                    yield response, status
+                    yield response, reso, status
             elif command == "/embed":
                 async for response, status in request_embedding(self, model, user_id, command):
                     if status == "stop":

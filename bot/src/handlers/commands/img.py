@@ -24,7 +24,7 @@ async def img_wrap(self, event, user_id, command, task_id):
 async def do_img(thisShit, user_id, event, placeholder_msg, command):
     images = None
     responseapi = gptools.call_api(thisShit, command = command, user_id = user_id)
-    images, status = await wait_for(responseapi.__anext__(), 60)
+    images, resos, status = await wait_for(responseapi.__anext__(), 60)
     if status == "cancel":
         await placeholder_msg.delete()
         return
@@ -32,7 +32,7 @@ async def do_img(thisShit, user_id, event, placeholder_msg, command):
     if isinstance(images, list):
         async with event.client.action(entity=event.chat_id, action='photo'):
             
-            caption = await make_caption(thisShit)
+            caption = await make_caption(thisShit, resos)
             if thisShit.raw:
                 ForceFile = True
             else:
@@ -51,14 +51,14 @@ async def do_img(thisShit, user_id, event, placeholder_msg, command):
     return
 
 
-async def make_caption(data):
+async def make_caption(data, resos):
     try:
         caption = ""
         if len(data.prompt) < 800:
             caption += f'✍️ `{data.prompt}`\n\n'
         caption += f'👗 `{data.style_data[0]}`\n'
         caption += f'🤖 `{data.img_model}`'
-        caption += f'\n📐 `{data.ratio}`'
+        caption += f'\n📐 `{resos[0]}`'
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
     finally:

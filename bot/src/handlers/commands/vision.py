@@ -17,7 +17,7 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
         mime_type = "jpeg"
         sequence_prompt = "what happens in this sequence of images?\n\n"
         prompt = f'{sequence_prompt}{prompt}'
-    image_bytes, file_name = await compress_image(image_bytes, file_name=file_meta["name"], mime_type=mime_type, quality=55)
+    image_bytes, file_name, _ = await compress_image(image_bytes, file_name=file_meta["name"], mime_type=mime_type, quality=55)
     file_meta["name"] = file_name
     doc = f"data:image/{mime_type};base64,{b64encode(image_bytes.getvalue()).decode('utf-8')}"
     await edit_msg(event, placeholder_msg, "👁️⏳...", buttons)

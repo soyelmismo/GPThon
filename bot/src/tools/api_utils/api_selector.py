@@ -1,4 +1,5 @@
 from openai import AsyncOpenAI
+from asyncio import sleep
 
 import bot.src.config as conf
 from random import shuffle
@@ -15,6 +16,12 @@ total_reqs = {
 
 api_reqs = {}
 
+rate_limited = set()
+
+async def set_temp_rate(api, duration):
+    rate_limited.add(api)
+    await sleep(duration)
+    rate_limited.discard(api)
 
 async def update_total_reqs(type, api, model, user_id, status, response = None, error = None):
     if not api_reqs.get(api):
@@ -24,9 +31,13 @@ async def update_total_reqs(type, api, model, user_id, status, response = None, 
         total_reqs[type][1] += 1
         logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ✅ {user_id}")
     else:
+        error = str(error)
+        if api == "fresed" and "5 minutes" in error:
+            await set_temp_rate(api, 300)
+
         api_reqs[api][1] += 1
         logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ❌ {user_id}")
-        conf.bot._loop.create_task(conf.send_logs_to_channel(f'Error message: {str(error)}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
+        conf.bot._loop.create_task(conf.send_logs_to_channel(f'Error message: {error}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
 
 
 async def select_api_data(api):
@@ -67,4 +78,10 @@ async def shuffle_apis(user_id, model, type) -> list[str]:
                 temp_apis.append(conf.exclusive_api_name) if user_id in conf.exclusive_api_chat_ids else None
     else:
         temp_apis = list(conf.openai_style_apis.keys())
+
+    for api in rate_limited:
+        if api in temp_apis:
+            logger.warning(f"{api} API is rate-limited, removing from list.")
+            temp_apis.remove(api)
+
     return temp_apis

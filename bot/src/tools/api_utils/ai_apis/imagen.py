@@ -47,13 +47,13 @@ async def generate_image(thisShit, model, user_id, command):
                         if isinstance(images, list):
                             for i in images:
                                 img_list.append(i.url)
-                        img_list = await download_images_list(img_list, thisShit)
+                        img_list, resolutions = await download_images_list(img_list, thisShit)
                         img_prompt = response.data[0].revised_prompt or thisShit.prompt
                     logger.debug(img_list)
 
                     logger.debug("Received, yielding")
                     await update_total_reqs(command, img_api, model, user_id, 1)
-                    yield img_list, img_prompt
+                    yield img_list, resolutions, img_prompt
                     img_pending = False
                 except CancelledError as e:
                     img_pending = False
@@ -67,4 +67,5 @@ async def generate_image(thisShit, model, user_id, command):
                 img_pending = False
         else:
             img_pending = False
-    yield "🎨 😔❌👍", "fail"
+        break
+    yield "🎨 😔❌👍", None, "fail"

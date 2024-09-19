@@ -11,17 +11,23 @@ async def download_images_list(urls, thisShit = None):
     if not urls:
         raise IndexError("No images received")
     images = []
+    resolutions = []
     async with AsyncClient() as client:
         tasks = [download_image(client, url, thisShit) for url in urls]
-        images = await gather(*tasks)
-    return [img for img in images if img is not None]
+        results = await gather(*tasks)
+
+    for img_data, resolution in results:
+        if img_data is not None:
+            images.append(img_data)
+            resolutions.append(resolution)
+    return images, resolutions
 
 async def download_image(client, url, thisShit = None):
     response = await client.get(url)
     if response.status_code == 200:
-        img_data, _ = await compress_image(response.content, black_check=True, thisShit = thisShit)
-        return img_data
-    return None
+        img_data, _, resolution = await compress_image(response.content, black_check=True, thisShit = thisShit)
+        return img_data, resolution
+    return None, None
 
 
 
@@ -53,6 +59,7 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
             quality = 100
             mime_type = "png"
 
+        resolution = f"{image.size[0]}×{image.size[1]}"
         image.save(img_bytes, format=mime_type, quality=quality)
         img_bytes.seek(0) # type: ignore
 
@@ -61,7 +68,8 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
             file_name = f'{random_id}.{mime_type}'
             
             img_bytes.name = file_name
-        return img_bytes, file_name
+        
+        return img_bytes, file_name, resolution
     except Exception as e:
         raise Exception(f'compress_image: {e}')
 
