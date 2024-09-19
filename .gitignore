@@ -179,3 +179,5 @@ bot/resources/apis/apis_normal.json.shit
 bot/src/tools/api_utils/call_tools/apis/stablehorde.py
 bot/src/tools/api_utils/call_tools/apis/imagine.py
 bot/src/tools/api_utils/call_tools/apis/opengpt/evagpt4.py
+bot.svg
+bot_good.svg

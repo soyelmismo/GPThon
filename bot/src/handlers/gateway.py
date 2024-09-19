@@ -1,15 +1,28 @@
-from . import *
+import bot.src.config as c
+from bot.src.constants import *
+from bot.src.logs import logger
+from bot.src.wrappers.rate_limiter import rate_limit_handler
 
+
+from bot.src.tools.tg_tools import *
+from bot.src.tools.other_tools import *
+from bot.src.handlers.commands.select import select
+from bot.src.handlers.commands.rol import roleplay
+from bot.src.handlers.commands.ask import ask_gateway
+from bot.src.handlers.commands.burnme import burnme
+from bot.src.handlers.commands.reset import reset_conversation
+from bot.src.handlers.commands.retry import retry
+from bot.src.handlers.tasks import cancel_task
 
 indexer = {
-    command_chat: ask_gateway,
-    command_stt: ask_gateway,
-    command_transcribe: ask_gateway,
+    c.command_chat: ask_gateway,
+    c.command_stt: ask_gateway,
+    c.command_transcribe: ask_gateway,
     "/tts": ask_gateway,
     "/vision": ask_gateway,
     "/embed": ask_gateway,
-    command_image: ask_gateway,
-    "/rol": roleplay if roleplay_enabled else False,
+    c.command_image: ask_gateway,
+    "/rol": roleplay if c.roleplay_enabled else False,
     "/reset": reset_conversation,
     "/select": select,
     "/retry": retry
@@ -37,9 +50,22 @@ async def gateway(event) -> None:
     callingTo = indexer.get(command)
     if command and callingTo:
         logger.debug(f'calling {command}')
-        bot.loop.create_task(callingTo(event, user_id = user_id, chat_id=chat_id, command = command))
+        c.bot._loop.create_task(callingTo(event, user_id = user_id, chat_id=chat_id, command = command))
     # raise events.StopPropagation
 
 @rate_limit_handler(3, 60)
 async def help(event):
     return await event.reply("https://telegra.ph/GPThon-Guide-09-05")
+
+
+async def cancel_callback(event):
+    try:
+        _, c_type, c_tik = str(event.data.decode('utf-8')).split("|")
+        user_id = await select_instance(event = event, task_id=c_tik)
+        logger.debug(event)
+        logger.debug(f'{c_type} {user_id} {c_tik}')
+        message = await cancel_task(c_type, user_id, c_tik)
+        if message:
+            await event.answer(message, alert=False)
+    except Exception as e:
+        logger.error(str(e))

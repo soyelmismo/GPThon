@@ -1,9 +1,8 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
 from asyncio import wait_for
-from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
+from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
-from . import remove_command, edit_msg
-from bot.src.tools.tg_tools import send_msg
+from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
 from io import BytesIO
 
 async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):

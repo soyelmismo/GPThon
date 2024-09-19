@@ -1,7 +1,7 @@
 from aiolimiter import AsyncLimiter
 from functools import wraps
 from telethon.types import MessageEntityBotCommand
-from bot.src.tools.other_tools import get_id
+from bot.src.tools.tg_tools import get_id
 
 limiters = {}
 

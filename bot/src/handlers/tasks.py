@@ -1,6 +1,6 @@
 
 from bot.src.logs import logger
-from bot.src.config import command_chat, command_image, command_stt, bot
+import bot.src.config as c
 
 from asyncio import Lock as TaskLock, CancelledError, sleep
 from telethon import Button
@@ -8,7 +8,7 @@ from telethon import Button
 from copy import deepcopy
 from random import choice
 from string import ascii_letters, digits
-from . import select_instance
+
 
 index_tasks = {}
 
@@ -26,16 +26,16 @@ async def gen_cancel_button(command, task_id):
 tasks_identifier = task_gen_temp_identifier(3)
 
 task_types = {
-    command_chat: {},
-    command_image: {},
-    command_stt: {},
+    c.command_chat: {},
+    c.command_image: {},
+    c.command_stt: {},
     "/tts": {}
 }
 
 task_limits = {
-    command_chat: 2,
-    command_image: 2,
-    command_stt: 2,
+    c.command_chat: 2,
+    c.command_image: 2,
+    c.command_stt: 2,
     "/tts": 2
 }
 
@@ -53,7 +53,7 @@ async def add_task(task_type, user_id, task, task_id):
         if not index_tasks.get(user_id):
             index_tasks[user_id] = deepcopy(task_types)
         if len(index_tasks[user_id][task_type]) < task_limits[task_type]:
-            task_wrapper = bot.loop.create_task(task)
+            task_wrapper = c.bot._loop.create_task(task)
             index_tasks[user_id][task_type][task_id] = task_wrapper
             logger.info(f"Task {task_type} - User: {user_id}' - Queued.")
         else:
@@ -101,31 +101,19 @@ async def cancel_task(task_type, user_id, task_id):
             index_tasks.get(user_id, {}).get(task_type, {}).pop(task_id, None)
             return message
 
-async def cancel_callback(event):
-    try:
-        _, c_type, c_tik = str(event.data.decode('utf-8')).split("|")
-        user_id = await select_instance(event = event, task_id=c_tik)
-        logger.debug(event)
-        logger.debug(f'{c_type} {user_id} {c_tik}')
-        message = await cancel_task(c_type, user_id, c_tik)
-        if message:
-            await event.answer(message, alert=False)
-    except Exception as e:
-        logger.error(str(e))
-
 
 async def monitor_tasks(update_each_seconds=5):
     while True:
         if len(index_tasks):
             users_to_remove = []
             for user_id, tasks in list(index_tasks.items()):
-                chat_count = len(tasks[command_chat])
-                img_count = len(tasks[command_image])
-                stt_count = len(tasks[command_stt])
+                chat_count = len(tasks[c.command_chat])
+                img_count = len(tasks[c.command_image])
+                stt_count = len(tasks[c.command_stt])
                 tts_count = len(tasks["/tts"])
 
                 if chat_count or img_count or stt_count or tts_count:
-                    logger.debug(f"{user_id}: {command_chat}: {chat_count}, {command_image}: {img_count}, {command_stt}: {stt_count}. /tts: {stt_count}.")
+                    logger.debug(f"{user_id}: {c.command_chat}: {chat_count}, {c.command_image}: {img_count}, {c.command_stt}: {stt_count}. /tts: {stt_count}.")
                 else:
                     users_to_remove.append(user_id)
 

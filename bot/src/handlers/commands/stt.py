@@ -1,17 +1,16 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
-from bot.src.tools.tg_tools import check_media_type
+from bot.src.tools.tg_tools import check_media_type, extract_media, edit_msg, remove_command
 from subprocess import call
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from asyncio import wait_for
 from bot.src.logs import logger
-from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
+from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.config import command_stt
 from io import BytesIO
 import subprocess
 from tempfile import NamedTemporaryFile
 import os
-from . import extract_media, edit_msg, remove_command
 
 
 async def stt_wrap(self, event, user_id, task_id, command = command_stt):

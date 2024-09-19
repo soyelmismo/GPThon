@@ -4,12 +4,12 @@ from asyncio import sleep, Lock
 import redis.asyncio as redis
 
 
-from bot.src.config import redis_enabled, redis_password, redis_uri, redis_user, bot, save_db_bandwidth
+import bot.src.config as conf
 from bot.src.logs import logger
-from bot.src.handlers.commands import tasks
+from bot.src.handlers import tasks
 from bot.src.handlers.userclass import UserPrepare
 
-SAVE_MINUTES = 10 if save_db_bandwidth else 1
+SAVE_MINUTES = 10 if conf.save_db_bandwidth else 1
 
 class IndexGroupInstances:
 
@@ -22,22 +22,22 @@ class IndexGroupInstances:
         self.save_each = SAVE_MINUTES * 60
         self.loop = loop  # Use the existing event loop
 
-    def initialize_redis(self):
-        if redis_enabled:
+    async def initialize_redis(self):
+        if conf.redis_enabled:
             
             try:
-                if redis_password and redis_user:
+                if conf.redis_password and conf.redis_user:
                     separator = ":"
                     another = "@"
                 else:
                     separator = ""
                     another = ""
                 self.r = redis.from_url(
-                    url=f"redis://{redis_user}{separator}{redis_password}{another}{redis_uri}",
+                    url=f"redis://{conf.redis_user}{separator}{conf.redis_password}{another}{conf.redis_uri}",
                     encoding="utf-8",
                     decode_responses=True
                 )
-                response = self.r.ping()  # Test Redis connection
+                response = await self.r.ping()  # Test Redis connection
                 if response:
                     logger.info("Redis connected.")
                 self.redis = True
@@ -150,7 +150,7 @@ class IndexGroupInstances:
                 if id not in tasks.index_tasks:
                     await self.save_to_redis(id, await to_dict(user_obj))
                     msg = f"Chat {id} uploaded"
-                    if not save_db_bandwidth and (exec_date - self.index[id].last_seen).total_seconds() > 60:
+                    if not conf.save_db_bandwidth and (exec_date - self.index[id].last_seen).total_seconds() > 60:
                         async with self.lock:
                             del self.index[id]  # Clear from in-memory once saved
                             msg += " and deleted locally."
@@ -171,6 +171,8 @@ class IndexGroupInstances:
                     if force:
                         logger.info("Force flushing done.")
                         break 
+            elif not self.redis and force:
+                return logger.warning("Tried to flush database forcibly, but Redis not detected.")
             elif not self.redis and not force:
                 return logger.warning("Redis not detected. Flush scheduling disabled.")
         except Exception as e:
@@ -276,4 +278,7 @@ async def date_calc(old_date, return_str = False):
     now_date = datetime.now()
     return (now_date - old_date).total_seconds()
 
-db = IndexGroupInstances(bot.loop)
+db = None
+def start_db():
+    global db
+    db = IndexGroupInstances(conf.bot._loop)

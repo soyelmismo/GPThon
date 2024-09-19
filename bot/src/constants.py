@@ -20,8 +20,6 @@ styles_str: str = ""
 session_default_chat_model = ""
 session_default_img_model = ""
 
-allowed_chat_mimetypes = ["plain", "javascript"]
-allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
 
 ERRFUNC = "Error retrieving function."
 FUNCNOARG = "Search arguments not found. Ask the user what he want to search."

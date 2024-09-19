@@ -1,5 +1,5 @@
 from random import randint
-import bot.src.constants as c
+from bot.src.config import allowed_image_mimetypes
 from io import BytesIO
 from PIL import Image
 from asyncio import gather
@@ -43,7 +43,7 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
 
         img_bytes = BytesIO()
 
-        if mime_type == "webm" or mime_type not in c.allowed_image_mimetypes:
+        if mime_type == "webm" or mime_type not in allowed_image_mimetypes:
             mime_type = "jpeg"
 
         #if not black_check and image.width > 1000 or image.height > 1000:

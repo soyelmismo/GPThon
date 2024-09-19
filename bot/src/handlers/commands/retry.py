@@ -1,6 +1,5 @@
-from . import rate_limit_handler
-from bot.src.handlers.commands import select_instance
-from bot.src.tools.tg_tools import send_msg
+from bot.src.wrappers.rate_limiter import rate_limit_handler
+from bot.src.tools.tg_tools import send_msg, select_instance
 
 @rate_limit_handler(3, 60)
 async def retry(event, user_id, chat_id, command) -> None:

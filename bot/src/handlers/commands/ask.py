@@ -10,16 +10,17 @@ from telethon.errors.rpcerrorlist import MessageNotModifiedError, MessageEmptyEr
 from re import sub
 from bot.src.logs import logger
 from time import time
-from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
-from bot.src.handlers.commands import select_instance, get_id
+from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.handlers.commands.vision import do_vision
 from bot.src.handlers.commands.tts import tts_wrap
 from telethon.types import RequestedPeerUser
-from . import bot, remove_command, extract_media, rate_limit_handler, command_chat, allowed_chat_mimetypes, edit_msg
-from bot.src.tools.tg_tools import send_msg
+from bot.src.tools.tg_tools import send_msg, edit_msg, extract_media, remove_command, get_id, select_instance
 from bot.src.tools.api_utils.ai_apis import shared_vars as svars
 from bot.src.tools.api_utils.call_tools.backends.website_view import urls_wrapper
 from bot.src.tools.other_tools import calculate_token_length
+import bot.src.config as conf
+
+from bot.src.wrappers.rate_limiter import rate_limit_handler
 
 LOADING_CHOICES = ["😎", "😱", "😳", "🗿", "🥵",
                    "🫣", "🤑", "🫨", "🥱", "🙉",
@@ -97,7 +98,7 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
             if not prompt:
                 prompt = str(file_meta.get("name", f'.{file_meta["mime"]}'))
             list_convo[0]["content"] = f'{prompt}\n> .{file_meta["mime"]} context:({vision})'
-        if check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in allowed_chat_mimetypes):
+        if check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in conf.allowed_chat_mimetypes):
             file_meta = await extract_media(event, file_meta)
             list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
         logger.debug(f'Returning prompt: {list_convo}')
@@ -269,12 +270,12 @@ async def update_conversation_history(self, response):
 
 async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
     if transcription:
-        command = command_chat
+        command = conf.command_chat
     thisShit = None
     try:
 
         task = do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id)
-        msg = await add_task(command_chat, user_id, task, task_id)
+        msg = await add_task(conf.command_chat, user_id, task, task_id)
         if not msg: return
         elif msg == "CantAddMore":
             await send_msg(event, text = "🫸🫨🫷")
@@ -288,7 +289,7 @@ async def do_ask(self, thisShit, file_meta, event, user_id, command, transcripti
     placeholder_msg = None
 
     try:
-        c_button = await gcb(command_chat, task_id)
+        c_button = await gcb(conf.command_chat, task_id)
         placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
         if not prompt_list or not thisShit:
             return None
@@ -316,7 +317,7 @@ async def do_ask(self, thisShit, file_meta, event, user_id, command, transcripti
             model = thisShit.chat_model
 
         if command in ["/retry", "/vision"]:
-            command = command_chat
+            command = conf.command_chat
 
 
         logger.debug("Calling api")
@@ -375,7 +376,7 @@ async def group_mode_data_fetch(self, event):
             if self.random_names:
                 self.user_ids_index[user_id] = await gen_random_name()
             else:
-                user_data: RequestedPeerUser = await bot.get_entity(int(user_id)) # type: ignore
+                user_data: RequestedPeerUser = await conf.bot.get_entity(int(user_id)) # type: ignore
                 new_name = (user_data.first_name if user_data.first_name
                             else user_data.username if user_data.username
                             else ""

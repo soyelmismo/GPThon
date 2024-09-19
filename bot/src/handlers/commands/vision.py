@@ -1,10 +1,10 @@
 from base64 import b64encode
-from . import extract_media, allowed_image_mimetypes
 from bot.src.tools.api_utils.apis_frontend import quick_chat_completion
 
-from bot.src.handlers.commands import edit_msg
 from bot.src.tools.general_tools.videosplit import extract_photos
 from bot.src.tools.general_tools.image_tools import compress_image
+from bot.src.tools.tg_tools import extract_media, edit_msg
+from bot.src.config import allowed_image_mimetypes
 
 async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file_meta: dict):
     file_meta = await extract_media(event, file_meta)

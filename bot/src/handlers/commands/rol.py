@@ -1,6 +1,6 @@
-from bot.src.handlers.commands import select_instance
 from bot.src.config import default_roleplay_model, bot_prompts
-from . import rate_limit_handler
+from bot.src.wrappers.rate_limiter import rate_limit_handler
+from bot.src.tools.tg_tools import select_instance
 
 @rate_limit_handler(5, 60)
 async def roleplay(event, user_id, chat_id, command) -> None:

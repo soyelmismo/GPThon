@@ -1,5 +1,6 @@
-from . import rate_limit_handler, select_instance, logger, remove_command
-from bot.src.tools.tg_tools import send_msg
+from bot.src.wrappers.rate_limiter import rate_limit_handler
+from bot.src.logs import logger
+from bot.src.tools.tg_tools import send_msg, remove_command, select_instance
 from sys import _getframe
 
 banned_attr = [

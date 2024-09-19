@@ -1,4 +1,4 @@
-from bot.src.handlers.database import db
+import bot.src.handlers.database as rdb
 from bot.src import constants as c
 from bot.src.config import bot_prompts, max_input_tokens
 from random import choice
@@ -254,37 +254,37 @@ async def p_group(thisShit, arg, value, chat_id, user_id):
         if not (await is_integer_string(value)):
             value = await p_auto_bool(thisShit, arg, value, just_return=True)
 
-        if chat_id in db.index and db.index[chat_id].owners:
-            if user_id == db.index[chat_id].user_id:
+        if chat_id in rdb.db.index and rdb.db.index[chat_id].owners:
+            if user_id == rdb.db.index[chat_id].user_id:
                 if arg == "group_mode" and not value:
-                    cb = await db.burn_group(chat_id)
+                    cb = await rdb.db.burn_group(chat_id)
                     if cb:
-                        async with db.lock:
-                            db.index[user_id].groups.discard(chat_id)
+                        async with rdb.db.lock:
+                            rdb.db.index[user_id].groups.discard(chat_id)
                         return {"text": "🫂🔥 ✅", "delete_user_message": True}
                     else:
                         return {"text": "🫂🔥 ❌", "delete_user_message": True}
                 elif arg == "random_names":
-                    async with db.lock:
-                        db.index[chat_id].random_names = value
+                    async with rdb.db.lock:
+                        rdb.db.index[chat_id].random_names = value
                 elif arg == "authorize":
-                    async with db.lock:
-                        db.index[chat_id].owners.add(value)
+                    async with rdb.db.lock:
+                        rdb.db.index[chat_id].owners.add(value)
                     return {"text": f"🫡`{value}` 👌"}
                 elif arg == "deauthorize":
-                    if value != db.index[chat_id].user_id:
-                        async with db.lock:
-                            db.index[chat_id].owners.discard(value)
+                    if value != rdb.db.index[chat_id].user_id:
+                        async with rdb.db.lock:
+                            rdb.db.index[chat_id].owners.discard(value)
                         return {"text": f'🫡"`{value}` = 💩🤮"'}
                     else:
                         return {"text": f"🤣🫵🤣🫵🤣🫵💩💩💩"}
             else:
                 return {"text": "🫂🔥 🚫", "delete_user_message": True}
         elif arg == "group_mode" and value:
-            grClass = await db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True)
+            grClass = await rdb.db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True)
             if user_id in grClass.owners:
-                async with db.lock:
-                    db.index[user_id].groups.add(chat_id)
+                async with rdb.db.lock:
+                    rdb.db.index[user_id].groups.add(chat_id)
                 return {"text": "🫂", "delete_user_message": True}
             else:
                 return {"text": "🫂❌😔", "delete_user_message": True}

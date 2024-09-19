@@ -7,8 +7,9 @@ from openai import APITimeoutError
 from httpx import Timeout
 
 from bot.src.logs import logger
+from bot.src.config import command_chat
 from bot.src.tools.api_utils.ai_apis.shared_vars import total_tokens
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, command_chat
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 
 from bot.src.tools.api_utils.call_tools.functions_extraction import get_openai_funcs
 
@@ -136,7 +137,7 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                         raise e
                 logger.debug(f'Response: {response} <---- Response')
 
-                resser = stream_type[thisShit.streaming]
+                resser = stream_type[payload["stream"]]
                 outsider = True
                 async for res_text, status in resser(thisShit, res_text, response):
                     if status in ["stop", "stall"]:

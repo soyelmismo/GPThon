@@ -6,7 +6,7 @@ from bot.src.config import (bot_prompts, command_image, command_stt,default_chat
                             text_improve_model, command_transcribe, default_tool_model, default_embedding_model,
                             default_tts_voice)
 from bot.src import constants as co
-from bot.src.handlers import check_media_type
+from bot.src.tools.tg_tools import check_media_type
 from bot.src.handlers.commands.stt import stt_wrap
 from bot.src.handlers.commands.img import img_wrap
 from bot.src.handlers.commands.tts import tts_wrap

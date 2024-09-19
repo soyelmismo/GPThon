@@ -1,13 +1,17 @@
 from re import escape
-from telethon import functions, types, events, helpers
-from bot.src.handlers.gateway import gateway
-from bot.src.handlers.commands.tasks import cancel_callback, tasks_identifier
+from telethon.events import CallbackQuery, NewMessage
+from telethon.types import BotCommand, BotCommandScopeDefault
+from telethon import TelegramClient
+from telethon.functions import bots
+
+from bot.src.handlers.gateway import gateway, cancel_callback
+from bot.src.handlers.tasks import tasks_identifier
 from asyncio import sleep
 
 import bot.src.config as conf
 from bot.src.logs import logger
-from bot.src.handlers.commands.tasks import monitor_tasks
-from bot.src.handlers.database import db
+from bot.src.handlers.tasks import monitor_tasks
+import bot.src.handlers.database as rdb
 from bot.src import constants as c
 
 try:
@@ -21,76 +25,75 @@ except ImportError:
 async def register_events():
     logger.info("Adding commands...")
     commands_list = [
-        types.BotCommand("ask", "💬")]
-    
-    
-    conf.bot.add_event_handler(cancel_callback, events.CallbackQuery(pattern=f'^{tasks_identifier}'))
+        BotCommand("ask", "💬")]
 
-    conf.bot.add_event_handler(gateway, events.NewMessage(
+    conf.bot.add_event_handler(cancel_callback, CallbackQuery(pattern=f'^{tasks_identifier}'))
+
+    conf.bot.add_event_handler(gateway, NewMessage(
     pattern = r'(^' + conf.command_chat + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
     
-    conf.bot.add_event_handler(gateway, events.NewMessage(
+    conf.bot.add_event_handler(gateway, NewMessage(
     pattern = r'(^/embed(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
 
-    conf.bot.add_event_handler(gateway, events.NewMessage(
+    conf.bot.add_event_handler(gateway, NewMessage(
     pattern = r'(^/tts(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
 
     if c.whisper_models:
-        commands_list.extend([types.BotCommand("stt", "🎤")])
-        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + conf.command_stt + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+        commands_list.extend([BotCommand("stt", "🎤")])
+        conf.bot.add_event_handler(gateway, NewMessage(pattern = '^' + conf.command_stt + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
 
     if c.img_models:
-        commands_list.extend([types.BotCommand("img", "🎨")])
-        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^' + conf.command_image + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+        commands_list.extend([BotCommand("img", "🎨")])
+        conf.bot.add_event_handler(gateway, NewMessage(pattern = '^' + conf.command_image + r'(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
 
-    commands_list.extend([types.BotCommand("vision", "👁️")])
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/vision(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    commands_list.extend([BotCommand("vision", "👁️")])
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/vision(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
 
     if conf.roleplay_enabled:
-        commands_list.extend([types.BotCommand("rol", "🔞")])
-        conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/rol(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+        commands_list.extend([BotCommand("rol", "🔞")])
+        conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/rol(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
 
 
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/select(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/retry(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/reset(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '^/help(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, events.NewMessage(pattern = '(?s)^(?!/).*$'))
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/select(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/retry(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/reset(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/help(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '(?s)^(?!/).*$'))
 
     
 
     commands_list.extend([
-            types.BotCommand("select", "🖕"),
-            types.BotCommand("burnme", "🔥"),
-            types.BotCommand("retry", "🔄"),
-            types.BotCommand("reset", "⏮️"),
-            types.BotCommand("help", "☝️🤓"),
+            BotCommand("select", "🖕"),
+            BotCommand("burnme", "🔥"),
+            BotCommand("retry", "🔄"),
+            BotCommand("reset", "⏮️"),
+            BotCommand("help", "☝️🤓"),
 
             ]
     )
-    conf.bot.loop.create_task(conf.bot(functions.bots.SetBotCommandsRequest(
-        scope = types.BotCommandScopeDefault(), 
+    await conf.bot(bots.SetBotCommandsRequest(
+        scope = BotCommandScopeDefault(), 
         lang_code = '',
         commands = commands_list
-    )))
+    ))
 
 
 async def post_init():
-
-    db.initialize_redis()
-    conf.bot.loop.create_task(db.flush_task())
-    conf.bot.loop.create_task(monitor_tasks())
+    conf.bot_data = await conf.bot.get_me()
+    rdb.start_db()
+    await rdb.db.initialize_redis()
+    conf.bot._loop.create_task(rdb.db.flush_task())
+    conf.bot._loop.create_task(monitor_tasks())
     if models_grabber:
-        conf.bot.loop.create_task(models_grabber()) # type: ignore
+        conf.bot._loop.create_task(models_grabber()) # type: ignore
         while c.not_yet_ready:
             logger.info("Waiting for models...")
             await sleep(1)
         logger.info("Initiated models!")
-
     await register_events()
     msg = "Bot running ✅"
     await conf.send_logs_to_channel(msg)
@@ -100,13 +103,15 @@ async def post_init():
 def start_bot():
     """Start the bot."""
 
-    print('Current loop before post_init', id(helpers.get_running_loop()))
-    print('Bot loop before post_init', id(conf.bot.loop))
+    conf.bot = TelegramClient(conf.session_name, conf.api_id, conf.api_hash).start(bot_token=conf.bot_token)
+    conf.bot.parse_mode = 'md'
+
     conf.bot.loop.run_until_complete(post_init())
 
-    print('Current loop', id(helpers.get_running_loop()))
-    print('Bot loop', id(conf.bot.loop))
-
+    #conf.bot.loop.run_forever()
     conf.bot.run_until_disconnected()
+
+    #await conf.bot.run_until_disconnected()
+    conf.bot.loop.run_until_complete(rdb.db.flush_task(force = 1))
     logger.info("Closing")
 

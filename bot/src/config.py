@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 from json import load
 from dotenv import load_dotenv
-from telethon import TelegramClient
-from telethon.types import User
+
 from bot.src.logs import logger
 
 
@@ -89,9 +88,13 @@ with open(basepath / "resources" / "prompts.json", "r", encoding="utf-8") as inf
     bot_prompts = load(infile)
 
 
-bot = TelegramClient(session_name, api_id, api_hash).start(bot_token=bot_token)
-bot.parse_mode = 'md'
-bot_data: User = bot.loop.run_until_complete(bot.get_me())
+allowed_chat_mimetypes = ["plain", "javascript"]
+allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
+
+
+bot = None
+
+bot_data = None
 
 async def send_logs_to_channel(text, parse_mode='markdown'):
     try:
