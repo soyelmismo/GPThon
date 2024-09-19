@@ -1,4 +1,14 @@
-from bot.src.tools.params.longAssDicts import *
+from bot.src.handlers.database import db
+from bot.src import constants as c
+from bot.src.config import bot_prompts, max_input_tokens
+from random import choice
+from bot.src.logs import logger
+from bot.src.tools.api_utils import apis_frontend as oai
+from hashlib import sha1
+from re import compile, findall
+
+
+from bot.src.tools.params.longAssDicts import shortened_args, img_ratios, iso_639_codes, iso_639_codes_txt
 from sys import _getframe
 
 #pattern = compile(r"(\s*\.|\n*\.)([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*)") OK
@@ -84,11 +94,16 @@ async def p_ratio(thisShit, value):
         thisShit.ratio = value
 
 improve_err = ["❌😔"]
-async def p_improve(thisShit, user_id):
+async def p_improve(thisShit, user_id, value):
     try:
+
+        if value:
+            promptr = f'"{thisShit.prompt}"\n\nimportant feedback to implement: {value}'
+        else:
+            promptr = thisShit.prompt
         thisShit.conversation = [
             {"role": "system", "content": bot_prompts["img_improve"]},
-            {"role": "user", "content": thisShit.prompt}
+            {"role": "user", "content": promptr}
             ]
         improved_prompt = await oai.quick_chat_completion(thisShit, user_id, thisShit.improve_model)
 
@@ -129,7 +144,7 @@ async def max_value_param(arg, value):
 
 
 
-async def p_auto_bool(thisShit, arg, value):
+async def p_auto_bool(thisShit, arg, value, just_return = None):
     try:
         if not value:
             value = not getattr(thisShit, arg)
@@ -140,7 +155,10 @@ async def p_auto_bool(thisShit, arg, value):
         logger.error(e)
         raise e
     finally:
-        setattr(thisShit, arg, value)
+        if not just_return:
+            setattr(thisShit, arg, value)
+        else:
+            return value
 
 model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
 
@@ -164,7 +182,12 @@ async def p_models(thisShit, arg, value):
                                    else c.speech_voices_txt if arg in ["tts_voice"]
                                    else c.chat_models_txt
                                    )
-                    value = {"text": f"⚠️**{value}**⚠️\n\n😒", "file": models_file, "force_document": True, "disable_delete": True}
+                    if not value:
+                        text = "😒"
+                    else:
+                        text = f"⚠️**{value}**⚠️\n\n😒"
+
+                    value = {"text": text, "file": models_file, "force_document": True, "disable_delete": True}
 
         else:
             value = forbidden
@@ -217,47 +240,58 @@ async def hash_to_8_digits(value):
     return result
 
 
+async def is_integer_string(value):
+    if value.lstrip('-').isdigit():
+        return True
+    return False
+
 
 # This is not mini
 async def p_group(thisShit, arg, value, chat_id, user_id):
     try:
-        if chat_id != user_id:
+        if chat_id == user_id:
+            return {"text": "🤡 🫂❓", "delete_user_message":True}
+        if not (await is_integer_string(value)):
+            value = await p_auto_bool(thisShit, arg, value, just_return=True)
 
-            if not value:
-                value = not bool(getattr(thisShit, arg))
-            else:
-                value = value.lower() == 'true'
-
-            if chat_id in db.index and db.index[chat_id].owners:
-                if user_id in db.index[chat_id].owners:
-                    if arg == "group_mode" and not value:
-                        cb = await db.burn_group(chat_id)
-                        if cb:
-                            async with db.lock:
-                                db.index[user_id].groups.discard(chat_id)
-                            value = {"text": "🫂🔥 ✅", "delete_user_message": True}
-                        else:
-                            value = {"text": "🫂🔥 ❌", "delete_user_message": True}
-                    elif arg == "random_names":
+        if chat_id in db.index and db.index[chat_id].owners:
+            if user_id == db.index[chat_id].user_id:
+                if arg == "group_mode" and not value:
+                    cb = await db.burn_group(chat_id)
+                    if cb:
                         async with db.lock:
-                            db.index[chat_id].random_names = value
-                else:
-                    value = {"text": "🫂🔥 🚫", "delete_user_message": True}
-            elif arg == "group_mode" and value:
-                grClass = await db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True, only_group = True)
-                if user_id in grClass.owners:
-                    value = "🫂"
+                            db.index[user_id].groups.discard(chat_id)
+                        return {"text": "🫂🔥 ✅", "delete_user_message": True}
+                    else:
+                        return {"text": "🫂🔥 ❌", "delete_user_message": True}
+                elif arg == "random_names":
                     async with db.lock:
-                        db.index[user_id].groups.add(chat_id)
-                else:
-                    value = "🫂❌😔"
-        else:
-            value = {"text": "🤡 🫂❓", "delete_user_message":True}
+                        db.index[chat_id].random_names = value
+                elif arg == "authorize":
+                    async with db.lock:
+                        db.index[chat_id].owners.add(value)
+                    return {"text": f"🫡`{value}` 👌"}
+                elif arg == "deauthorize":
+                    if value != db.index[chat_id].user_id:
+                        async with db.lock:
+                            db.index[chat_id].owners.discard(value)
+                        return {"text": f'🫡"`{value}` = 💩🤮"'}
+                    else:
+                        return {"text": f"🤣🫵🤣🫵🤣🫵💩💩💩"}
+            else:
+                return {"text": "🫂🔥 🚫", "delete_user_message": True}
+        elif arg == "group_mode" and value:
+            grClass = await db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True)
+            if user_id in grClass.owners:
+                async with db.lock:
+                    db.index[user_id].groups.add(chat_id)
+                return {"text": "🫂", "delete_user_message": True}
+            else:
+                return {"text": "🫂❌😔", "delete_user_message": True}
+
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-    finally:
-        return value
-    
+
 async def p_language(thisShit, value):
     try:
         if value == "None":

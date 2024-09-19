@@ -1,7 +1,6 @@
 
 from bot.src.logs import logger
 from asyncio import CancelledError
-from asyncio import create_task
 from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
 
 
@@ -16,9 +15,9 @@ async def request_embedding(thisShit, model, user_id, command):
         embed_pending = True
         logger.debug("Set-up embeddings payload")
         payload = {
-            "input": thisShit.conversation[-1]["content"],
+            "input": thisShit.conversation[-1]["content"].strip(),
             "model": model,
-            "timeout": 20
+            "timeout": 5
         }
         while embed_pending:
             for model in models_to_check:
@@ -30,6 +29,7 @@ async def request_embedding(thisShit, model, user_id, command):
                         res_text = []
                         logger.debug("Generating embedding...")
                         client = await select_api_data(api)
+                        tok = 0
                         try:
                             response = await client.embeddings.create(**payload)
                         except CancelledError as e:
@@ -40,7 +40,10 @@ async def request_embedding(thisShit, model, user_id, command):
                         res_text = response.data[0].embedding
                         if not res_text:
                             raise ValueError(f'"{res_text}" inexistent')
-                        tok = response.usage.total_tokens or 0 
+                        try:
+                            tok += response.usage.total_tokens
+                        except:
+                            tok += 1
                         thisShit.used_tokens += tok
                         await update_total_reqs(command, api, model, user_id, 1)
         

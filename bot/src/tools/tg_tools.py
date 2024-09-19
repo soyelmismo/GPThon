@@ -1,5 +1,5 @@
 
-from telethon.types import PeerUser, MessageMediaPhoto, MessageMediaDocument, DocumentAttributeFilename, DocumentAttributeVideo
+from telethon.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeFilename, DocumentAttributeVideo
 from bot.src.config import (bot_data, bot_name, whitelist_chat_ids, blacklist_chat_ids, logger, command_stt, command_image,
                             command_chat, command_transcribe
                             )

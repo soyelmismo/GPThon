@@ -1,9 +1,10 @@
-from asyncio import create_task, CancelledError
+from asyncio import CancelledError
 from random import uniform
 from sys import _getframe
 from json import loads
 from copy import deepcopy
 from openai import APITimeoutError
+from httpx import Timeout
 
 from bot.src.logs import logger
 from bot.src.tools.api_utils.ai_apis.shared_vars import total_tokens
@@ -37,7 +38,10 @@ async def manage_non_stream_response(thisShit, res_text, response):
         res_text += response.choices[0].message.content
         if not res_text: 
             raise ValueError(f'"{res_text}" inexistent')
-        tok = response.usage.total_tokens or 0 
+        try:
+            tok = response.usage.total_tokens
+        except:
+            tok = 1
         total_tokens += tok
         thisShit.used_tokens += tok
         yield res_text, "stop"
@@ -85,7 +89,7 @@ async def manage_stream_response(thisShit, res_text, response):
                     try:
                         tok = chunk.usage.total_tokens
                     except:  # noqa: E722
-                        tok = 0
+                        tok = 1
 
                 total_tokens += tok
                 thisShit.used_tokens += tok
@@ -105,10 +109,11 @@ stream_type = {
 }
 
 err = '✍️ 😔❌👍'
-async def request_chat_completion(thisShit, model, user_id, command):
+
+async def request_chat_completion(thisShit, model, user_id, command, quick):
     response = "placeholder_empty_response"
     try:
-        payload = await configure_payload(thisShit, model, command)
+        payload = await configure_payload(thisShit, model, command, quick)
         
         logger.debug("Generating response...")
         temp_apis = await shuffle_apis(user_id, payload["model"], command)
@@ -122,6 +127,11 @@ async def request_chat_completion(thisShit, model, user_id, command):
                 except CancelledError as e:
                     if "Cancelled by user." not in str(e):
                         continue
+                    else:
+                        raise e
+                except Exception as e:
+                    if not isinstance(response, str):
+                        pass
                     else:
                         raise e
                 logger.debug(f'Response: {response} <---- Response')
@@ -176,7 +186,7 @@ async def request_chat_completion(thisShit, model, user_id, command):
 
 
 
-async def configure_payload(thisShit, model, command):
+async def configure_payload(thisShit, model, command, quick):
     logger.debug("Set-up chat payload")
     try:
 
@@ -184,11 +194,11 @@ async def configure_payload(thisShit, model, command):
             "messages": thisShit.conversation,
             #"max_tokens": int(min(int(thisShit.max_tokens) * 0.65, max_total_tokens)),
             "model": model,
-            "stream": thisShit.streaming,
+            "stream": False if quick else thisShit.streaming,
             "seed": thisShit.seed,
-            "timeout": 10 if thisShit.streaming else 20
+            "timeout": Timeout(6, connect=4) if thisShit.streaming else Timeout(16, connect=4)
         }
-        if thisShit.tool_call and command == command_chat:
+        if not quick and thisShit.tool_call and command == command_chat:
             payload["tools"] = functions_data
             payload["tool_choice"] = "auto"
             payload["model"] = thisShit.tool_model

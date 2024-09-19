@@ -1,8 +1,11 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
 from random import choice
 from io import BytesIO
+from uuid import uuid4
+from datetime import datetime
+from json import dumps
 from unicodedata import normalize, category
-from asyncio import sleep, wait_for, CancelledError
+from asyncio import sleep, wait_for
 from telethon.errors.rpcerrorlist import MessageNotModifiedError, MessageEmptyError
 from re import sub
 from bot.src.logs import logger
@@ -103,7 +106,7 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
         raise Exception (f"extract_prompt: {str(e)}")
 
 async def handle_summarize(self, user_id, conversation_text = None):
-    from bot.src.tools.params.mini_tools import get_conversation
+    from bot.src.tools.other_tools import get_conversation
     try:
         logger.info("Trying to summarize the conversation.")
         tempbak = float(self.temperature)
@@ -131,7 +134,7 @@ async def tokens_counter(self, user_id):
         current_token_length = await calculate_token_length(self.conversation)
         conversation_text = None
         if current_token_length > int(self.max_tokens):
-            logger.info("Detected token limit.")
+            logger.info(f"Detected token limit: {current_token_length}:{self.max_tokens}")
             if self.summarize and not self.roleplaying:
                 conversation_text = await handle_summarize(self, user_id)
             if not conversation_text:
@@ -189,6 +192,7 @@ async def handle_api_response(self, event, responseapi, placeholder_msg, task_id
         response = ""
         start_time = time()
         chat_pending = True
+        old_response = ""
         while chat_pending:
             try:
                 try:
@@ -209,8 +213,9 @@ async def handle_api_response(self, event, responseapi, placeholder_msg, task_id
                 elif status in ["stop", "error"]:
                     raise StopAsyncIteration("internal status break")
                 else:
-                    if len(response) > 1:
+                    if len(response) > 1 and old_response != response:
                         placeholder_msg = await process_response_chunk(event, response, done_parts, placeholder_msg, status, c_button)
+                        old_response = str(response)
                     await sleep(0.03)
                     start_time = time()                
             except StopAsyncIteration:
@@ -237,9 +242,6 @@ async def process_embeddings_file(self, event, response):
     try:
         embed_file = BytesIO()
         embed_file.name = '🃏.json'
-        from uuid import uuid4
-        from datetime import datetime
-        from json import dumps
         last_msg = self.conversation[-1]["content"]
         embed_data = {
             "id": uuid4().hex,
@@ -270,7 +272,7 @@ async def ask_wrap(self, event, user_id, transcription, command, task_id, file_m
         command = command_chat
     thisShit = None
     try:
-        
+
         task = do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id)
         msg = await add_task(command_chat, user_id, task, task_id)
         if not msg: return
@@ -290,6 +292,10 @@ async def do_ask(self, thisShit, file_meta, event, user_id, command, transcripti
         placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
         if not prompt_list or not thisShit:
             return None
+        
+        if "gpt-3.5-turbo" in self.chat_model:
+            self.chat_model = "gpt-4o-mini"
+            thisShit.chat_model = "gpt-4o-mini"
 
         if not placeholder_msg:
             placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
@@ -298,8 +304,9 @@ async def do_ask(self, thisShit, file_meta, event, user_id, command, transcripti
 
         
         logger.debug(self.conversation)
-        self.conversation.extend(prompt_list)
-        await tokens_counter(self, user_id)
+        if command != "/retry":
+            self.conversation.extend(prompt_list)
+            await tokens_counter(self, user_id)
         thisShit.conversation = self.conversation
 
 

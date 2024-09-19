@@ -37,7 +37,7 @@ async def gateway(event) -> None:
     callingTo = indexer.get(command)
     if command and callingTo:
         logger.debug(f'calling {command}')
-        create_task(callingTo(event, user_id = user_id, chat_id=chat_id, command = command))
+        bot.loop.create_task(callingTo(event, user_id = user_id, chat_id=chat_id, command = command))
     # raise events.StopPropagation
 
 @rate_limit_handler(3, 60)

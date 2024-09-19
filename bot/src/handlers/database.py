@@ -22,7 +22,7 @@ class IndexGroupInstances:
         self.save_each = SAVE_MINUTES * 60
         self.loop = loop  # Use the existing event loop
 
-    async def initialize_redis(self):
+    def initialize_redis(self):
         if redis_enabled:
             
             try:
@@ -37,7 +37,7 @@ class IndexGroupInstances:
                     encoding="utf-8",
                     decode_responses=True
                 )
-                response = await self.r.ping()  # Test Redis connection
+                response = self.r.ping()  # Test Redis connection
                 if response:
                     logger.info("Redis connected.")
                 self.redis = True
@@ -47,7 +47,7 @@ class IndexGroupInstances:
         else:
             logger.warning("No Redis password provided. In-memory cache only.")
     
-    async def grab_class(self, chat_id= "", user_id= "", make_group=None, only_group = None):
+    async def grab_class(self, chat_id= "", user_id= "", make_group=None):
         try:
             mng = None
             if chat_id != user_id:
@@ -60,7 +60,7 @@ class IndexGroupInstances:
                 else:
                     mng = self.index[chat_id]
 
-                if make_group and only_group:
+                if make_group:
                     async with self.lock:
                         mng.group_mode = True
                         mng.user_id = user_id
@@ -147,13 +147,14 @@ class IndexGroupInstances:
             logger.info("Backup in-memory objects to Redis...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
-                await self.save_to_redis(id, await to_dict(user_obj))
-                msg = f"Chat {id} uploaded"
-                if not save_db_bandwidth and id not in tasks.index_tasks and (exec_date - self.index[id].last_seen).total_seconds() > 60:
-                    async with self.lock:
-                        del self.index[id]  # Clear from in-memory once saved
-                        msg += " and deleted locally."
-                logger.info(msg)
+                if id not in tasks.index_tasks:
+                    await self.save_to_redis(id, await to_dict(user_obj))
+                    msg = f"Chat {id} uploaded"
+                    if not save_db_bandwidth and (exec_date - self.index[id].last_seen).total_seconds() > 60:
+                        async with self.lock:
+                            del self.index[id]  # Clear from in-memory once saved
+                            msg += " and deleted locally."
+                    logger.info(msg)
 
         await self.remove_old_db_ids()
 

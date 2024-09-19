@@ -64,12 +64,11 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 replied = str(replied).replace(longrep, "").strip()
                 replied = str(replied).replace(bot_command, "").strip()
                 replied = str(replied).replace(bot_mention, "").strip()
-            if replied and str(conversation[-1]["content"]).strip() != replied and bot_command != command_image:
-                message = str(f"\n> {replied}\n\n{message}")
-            elif bot_command == command_image:
+            if bot_command in [command_image, "/select", "/embed"]:
                 message = str(f"{replied} {message}").strip()
-            elif bot_command == "/select":
-                message = str(f"{message} {replied}").strip()
+            elif replied and str(conversation[-1]["content"]).strip() != replied:
+                message = str(f"\n> {replied}\n\n{message}")
+            
     if sticker:
         message = f"{message}{sticker}"
     return message
@@ -101,16 +100,11 @@ async def extract_media(event, file_data, placeholder_msg = None, buttons = None
         logger.error(f"Error in extract_media: {str(e)}")
         return file_data
 
-async def select_instance(chat_id = None, user_id = None, event = None):
+async def select_instance(chat_id = None, user_id = None, event = None, task_id = None):
     from bot.src.handlers.database import db
-    ruid: str = ""
-    if event and (not chat_id or not user_id):
+    if event and task_id:
+        if task_id.endswith("✦"):
+            return str(event.chat_id)
+        return await get_id(event)
 
-        user_id = await get_id(event)
-        chat_id = str(event.chat_id)
-        ruid = user_id
-
-    urClass = await db.grab_class(chat_id, user_id)
-
-
-    return ruid if ruid else urClass # type: ignore
+    return await db.grab_class(chat_id, user_id)

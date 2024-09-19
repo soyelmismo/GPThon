@@ -1,21 +1,8 @@
 from bot.src.config import (
 command_chat, command_image, command_stt
 )
-from bot.src.handlers.database import db
-from bot.src.tools.params.tempclass import gotClass
-from bot.src.handlers.commands.rol import roleplay
-from bot.src.tools.tg_tools import send_msg
-from bot.src.handlers.commands import edit_msg
-from bot.src import constants as c
-from bot.src.config import bot_prompts, max_input_tokens
-from random import choice
-from bot.src.logs import logger
-from bot.src.tools.api_utils import apis_frontend as oai
-from io import BytesIO
-from hashlib import sha1
-from re import compile, findall
-from bot.src.tools.other_tools import get_conversation
 
+from io import BytesIO
 
 
 img_ratios = {
@@ -38,7 +25,7 @@ all_args = {
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
-        "to_tts", "tts_voice", "debug", "raw"
+        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize"
         ],
 
     "/select": [
@@ -46,7 +33,7 @@ all_args = {
         "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens", "debug",
         "status", "seed", "download", "group_mode", "random_names", "summarize",
         "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
-        "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice"
+        "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize", "deauthorize"
         ],
 
 
@@ -120,7 +107,11 @@ shortened_args = {
     "tm": "tool_model",
     "voice": "tts_voice",
     "ttts": "to_tts",
-    "d": "debug"
+    "d": "debug",
+    "auth": "authorize",
+    "deauth": "deauthorize",
+    "allow": "authorize",
+    "disallow": "deauthorize"
 }
 
 allowed_no_value = [
@@ -129,13 +120,13 @@ allowed_no_value = [
 "img_model", "group_mode", "random_names", "streaming",
 "memory", "randomizer", "answer_stt", "improve_prompt",
 "summarize", "transcribe", "tool_call", "to_tts",
-"tts_voice", "debug", "raw"
+"tts_voice", "debug", "raw", "embedding_model"
 
 ]
 
 allowed_in_groups = ["status", "download", "answer_stt",
                      "stt_language", "transcribe", "stt_language",
-                     "raw"]
+                     "raw", "improve_prompt", "style_name", "ratio", "raw"]
 
 warnings = {
     "/select": f"⚙️👎🫵 {', '.join(f'`.{arg}`' for arg in all_args["/select"])}",

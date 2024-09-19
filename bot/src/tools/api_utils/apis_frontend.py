@@ -14,11 +14,10 @@ async def quick_chat_completion(self, user_id, model):
     try:
         temp_apis = await shuffle_apis(self.user_id, model, command_chat)
         logger.debug(f"apis for quick_chat_completion {model}: {temp_apis}")
-        self.streaming = False
 
         try:
-            self.tool_call = False
-            responseapi = call_api(self=self, command = command_chat, user_id=user_id, model = model)
+
+            responseapi = call_api(self=self, command = command_chat, user_id=user_id, model = model, quick = True)
             response, status = await wait_for(responseapi.__anext__(), 60) # type: ignore
             if status == "stop":
                 logger.debug(f"Returning quick_chat_completion `{response}`")
@@ -38,7 +37,7 @@ async def quick_chat_completion(self, user_id, model):
 
 
 
-async def call_api(self, command = None, user_id = None, media=None, model = None) :
+async def call_api(self, command = None, user_id = None, media=None, model = None, quick = None) :
     response = None
     tries = 0
     trying = True
@@ -50,7 +49,7 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
             logger.debug("Initializing OpenAI instance")
 
             if command == command_chat:
-                async for response, status in request_chat_completion(self, model, user_id, command=command):
+                async for response, status in request_chat_completion(self, model, user_id, command=command, quick=quick):
                     if status == "stop":
                         trying = False
                     yield response, status
@@ -87,10 +86,10 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                 trying = False
                 yield "Cancelled", "cancel"
         except Exception as e:
-            if tries == 2:
+            if tries == 3:
                 raise ConnectionRefusedError(f'Error in call_api: {str(e)}')
             continue
         finally:
-            await sleep(1)
+            await sleep(5)
             tries += 1
             continue

@@ -1,4 +1,3 @@
-
 from bot.src.bot import start_bot
 from bot.src.logs import logger
 

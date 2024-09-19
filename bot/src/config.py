@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.types import User
 from bot.src.logs import logger
-from asyncio import create_task
+
+
 
 load_dotenv()
 
@@ -90,18 +91,18 @@ with open(basepath / "resources" / "prompts.json", "r", encoding="utf-8") as inf
 
 bot = TelegramClient(session_name, api_id, api_hash).start(bot_token=bot_token)
 bot.parse_mode = 'md'
-bot_data: User = bot.loop.run_until_complete(bot.get_me()) # type: ignore
+bot_data: User = bot.loop.run_until_complete(bot.get_me())
 
 async def send_logs_to_channel(text, parse_mode='markdown'):
     try:
         if error_report_channel_id and error_report_channel_thread:
             if len(text) <= 4090:
-                create_task(bot.send_message(message=f'```{text}```', entity=error_report_channel_id, reply_to=error_report_channel_thread, link_preview=False, parse_mode=parse_mode))
+                await bot.send_message(message=f'```{text}```', entity=error_report_channel_id, reply_to=error_report_channel_thread, link_preview=False, parse_mode=parse_mode)
             else:
                 message_parts = [text[i:i+4090] for i in range(0, len(text), 4090)]
                 for part in message_parts:
                     for _ in range(0, len(message_parts)):
-                        create_task(bot.send_message(message=f'```{part}```', entity=error_report_channel_id, reply_to=error_report_channel_thread, link_preview=False, parse_mode=parse_mode))
+                        await bot.send_message(message=f'```{part}```', entity=error_report_channel_id, reply_to=error_report_channel_thread, link_preview=False, parse_mode=parse_mode)
         else:
             logger.error(f'send_logs_to_channel: {text}')
     except Exception as e:

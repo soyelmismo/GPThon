@@ -1,16 +1,20 @@
-from bot.src.config import command_stt, default_embedding_model, default_tool_model
-async def clone_class_with_attributes(base_instance):
-    # Define una nueva clase sin métodos
+from bot.src.config import command_stt
+
+async def clone_class_with_attributes_old(base_instance):
     class ClonedClass:
         pass
 
-    # Copia todos los atributos de base_instance a ClonedClass
     for attr in dir(base_instance):
         if not attr.startswith('__') and not callable(getattr(base_instance, attr)):
             setattr(ClonedClass, attr, getattr(base_instance, attr))
 
     return ClonedClass
 
+async def clone_class_with_attributes(base_instance):
+    attributes = {k: v for k, v in vars(base_instance).items() if not callable(v)}
+
+    ClonedClass = type('ClonedClass', (object,), attributes)
+    return ClonedClass
 
 async def gotClass(cls, command, prompt):
     ClonedClass = await clone_class_with_attributes(cls)

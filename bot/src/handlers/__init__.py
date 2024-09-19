@@ -8,7 +8,7 @@ from telethon.events import NewMessage
 
 from bot.src.tools.tg_tools import *
 from bot.src.tools.other_tools import *
-from asyncio import create_task, Lock as TaskLock, CancelledError, sleep
+from asyncio import Lock as TaskLock, CancelledError, sleep
 from bot.src.handlers.commands.select import select
 from bot.src.handlers.commands.rol import roleplay
 from bot.src.handlers.commands.ask import ask_gateway

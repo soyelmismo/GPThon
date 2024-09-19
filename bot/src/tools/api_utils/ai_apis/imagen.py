@@ -1,6 +1,5 @@
 from asyncio import CancelledError
 from bot.src.logs import logger
-from asyncio import create_task
 
 from bot.src.tools.general_tools.image_tools import download_images_list
 from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs

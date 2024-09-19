@@ -1,5 +1,5 @@
 from re import escape
-from telethon import functions, types, events
+from telethon import functions, types, events, helpers
 from bot.src.handlers.gateway import gateway
 from bot.src.handlers.commands.tasks import cancel_callback, tasks_identifier
 from asyncio import sleep
@@ -80,8 +80,8 @@ async def register_events():
 
 
 async def post_init():
-    
-    await db.initialize_redis()
+
+    db.initialize_redis()
     conf.bot.loop.create_task(db.flush_task())
     conf.bot.loop.create_task(monitor_tasks())
     if models_grabber:
@@ -90,20 +90,23 @@ async def post_init():
             logger.info("Waiting for models...")
             await sleep(1)
         logger.info("Initiated models!")
-    
+
     await register_events()
     msg = "Bot running ✅"
-    conf.bot.loop.create_task(conf.send_logs_to_channel(msg))
+    await conf.send_logs_to_channel(msg)
     logger.info(msg)
 
 
-async def main():
-    """Start the bot."""
-    await post_init()
-
-    await conf.bot.run_until_disconnected()
-
 def start_bot():
-    conf.bot.loop.run_until_complete(main())
+    """Start the bot."""
+
+    print('Current loop before post_init', id(helpers.get_running_loop()))
+    print('Bot loop before post_init', id(conf.bot.loop))
+    conf.bot.loop.run_until_complete(post_init())
+
+    print('Current loop', id(helpers.get_running_loop()))
+    print('Bot loop', id(conf.bot.loop))
+
+    conf.bot.run_until_disconnected()
     logger.info("Closing")
-    
+

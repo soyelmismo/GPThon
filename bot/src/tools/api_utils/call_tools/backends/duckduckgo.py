@@ -1,4 +1,3 @@
-from itertools import islice
 from duckduckgo_search import DDGS
 
 async def search(query=None, gptcall=None, timelimit: str = None, type='text', max_results = 3):

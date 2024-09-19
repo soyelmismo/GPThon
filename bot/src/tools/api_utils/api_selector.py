@@ -1,13 +1,13 @@
 from openai import AsyncOpenAI
+
 from bot.src.config import (openai_style_apis, exclusive_api_chat_ids,
                             exclusive_api_name,
                             command_chat, command_image, command_stt,
-                            send_logs_to_channel
+                            send_logs_to_channel, bot
                             )
 from random import shuffle
 import bot.src.constants as c
 from bot.src.logs import logger
-from asyncio import create_task
 
 total_reqs = {
     command_chat: ["📚", 0],
@@ -25,10 +25,12 @@ async def update_total_reqs(type, api, model, user_id, status, response = None, 
         api_reqs[api] = [0, 0]
     if status == 1:
         api_reqs[api][0] += 1
+        total_reqs[type][1] += 1
         logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ✅ {user_id}")
     else:
         api_reqs[api][1] += 1
-        create_task(send_logs_to_channel(f'Error message: {str(error)}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
+        logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ❌ {user_id}")
+        bot.loop.create_task(send_logs_to_channel(f'Error message: {str(error)}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
 
 
 async def select_api_data(api):

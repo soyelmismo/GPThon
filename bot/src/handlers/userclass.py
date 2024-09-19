@@ -1,5 +1,6 @@
 from json import loads, JSONDecodeError
 from datetime import datetime
+from uuid import uuid4
 
 from bot.src.config import (bot_prompts, command_image, command_stt,default_chat_model, default_img_model, default_vision_model,
                             text_improve_model, command_transcribe, default_tool_model, default_embedding_model,
@@ -13,11 +14,9 @@ from bot.src.handlers.commands.ask import ask_wrap
 
 
 status_blacklist: list = ["conversation",
-                       "whisper_model", "whisper_api",
-                       "img_api", "sysprompt", "user_id",
+                       "sysprompt", "user_id",
                        "user_ids_index", "embedding_model",
-                       "owners", "last_seen", "debug",
-                       "tool_model", "to_tts", "tts_voice"
+                       "owners", "last_seen", "debug"
                     ]
 
 class UserPrepare():
@@ -99,6 +98,8 @@ class UserPrepare():
             blist.extend(["chat_model"])
         if not self.group_mode:
             blist.extend(["group_mode", "random_names"])
+        if not self.tool_call:
+            blist.extend(["tool_model"])
 
         for key, value in vars(self).items():
             if key == "groups":
@@ -114,7 +115,7 @@ class UserPrepare():
         new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
         if self.tool_call:
 
-            new_system += f"\n\nRemember to use ({", ".join(f'"{tool}"' for tool in co.tools_loaded)}) "
+            new_system += f"\n\nRemember to use ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
             new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
 
         liste = [{"role": "system", "content": new_system}]
@@ -124,7 +125,7 @@ class UserPrepare():
         return liste
 
     async def request_wrap(self, event, user_id, command = None) -> None:
-        task_id = await self.random_uuid()
+        task_id = await self.random_uuid(str(event.chat_id), user_id)
         transcribed = None
         file_meta: dict = await check_media_type(event)
         if command == command_image:
@@ -145,7 +146,6 @@ class UserPrepare():
         return await ask_wrap(self, event, user_id, transcribed, command, task_id, file_meta)
 
     async def delete_conversation(self, event=None, user_id=None, rol = 0, notify = 0, summarized = 0):
-        from bot.src.config import default_chat_model
         if (event and self.memory and self.group_mode and
             user_id and user_id not in self.owners and notify):
                 return await event.reply("🚫🫂🚫")
@@ -163,6 +163,8 @@ class UserPrepare():
             self.user_ids_index = dict()
 
     @staticmethod
-    async def random_uuid():
-        from uuid import uuid4
-        return str(uuid4())[:6]
+    async def random_uuid(chat_id, user_id):
+        tid = str(uuid4())[:6]
+        if user_id == chat_id:
+            tid += "✦"
+        return tid

@@ -1,8 +1,7 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
-from asyncio import wait_for, CancelledError
+from asyncio import wait_for
 from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
-import bot.src.constants as c
 from . import remove_command, edit_msg
 from bot.src.tools.tg_tools import send_msg
 from io import BytesIO

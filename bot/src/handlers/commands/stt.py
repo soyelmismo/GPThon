@@ -1,9 +1,9 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
-from bot.src.tools.tg_tools import check_media_type, send_msg
+from bot.src.tools.tg_tools import check_media_type
 from subprocess import call
 from tempfile import TemporaryDirectory
 from pathlib import Path
-from asyncio import wait_for, CancelledError
+from asyncio import wait_for
 from bot.src.logs import logger
 from bot.src.handlers.commands.tasks import add_task, gen_cancel_button as gcb
 from bot.src.config import command_stt

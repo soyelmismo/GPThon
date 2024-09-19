@@ -1,4 +1,23 @@
-from .mini_tools import *
+from bot.src.config import (
+command_image, command_stt
+)
+
+from bot.src.tools.params.tempclass import gotClass
+from bot.src.handlers.commands.rol import roleplay
+from bot.src.tools.tg_tools import send_msg
+
+from bot.src.tools.other_tools import get_conversation
+
+
+from bot.src.tools.params.longAssDicts import (
+    all_args, allowed_in_groups,
+    allowed_no_value, warnings
+)
+from bot.src.tools.params.mini_tools import (
+    p_auto_bool, p_floats, p_group, p_improve, p_language, p_models,
+    p_photos, p_ratio, p_seed, p_sysprompt, manage_style, extract_arg_value,
+    extract_prompt_args, final_img_step
+)
 
 async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None, file_meta = None):
     warning = warnings.get(command)
@@ -38,7 +57,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
             case "status":
                 thisShit.warning = {"text": f'```\n{cls.to_string()}```', "disable_delete": True}
                 break
-            case "group_mode" | "random_names":
+            case "group_mode" | "random_names" | "authorize" | "deauthorize":
                 value = await p_group(cls, arg, value, chat_id, user_id)
                 if isinstance(value, dict):
                     thisShit.warning = value
@@ -89,7 +108,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 #continue
 
             case "improve_prompt":
-                await p_improve(thisShit, user_id)
+                await p_improve(thisShit, user_id, value)
                 if isinstance(thisShit.prompt, list):
                     thisShit.warning = thisShit.prompt[0]
                     break
