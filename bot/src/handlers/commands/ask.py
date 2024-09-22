@@ -43,6 +43,75 @@ async def ask_gateway(event, user_id, chat_id, command) -> None:
 
     return await class_to_call.request_wrap(event, user_id, command) # type: ignore
 
+async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
+    if transcription:
+        command = conf.command_chat
+    thisShit = None
+    try:
+
+        task = do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id)
+        msg = await add_task(conf.command_chat, user_id, task, task_id)
+        if not msg: return
+        elif msg == "CantAddMore":
+            await send_msg(event, text = "🫸🫨🫷")
+        return
+    except Exception as e:
+        logger.error(f"ask_wrap: {str(e)}")
+
+async def do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id):
+    prompt_list = None
+    placeholder_msg = None
+
+    try:
+        c_button = await gcb(conf.command_chat, task_id)
+        placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
+        if not prompt_list or not thisShit:
+            return None
+
+        if not placeholder_msg:
+            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
+
+        logger.debug(command)
+
+
+        logger.debug(self.conversation)
+        if command != "/retry":
+            self.conversation.extend(prompt_list)
+            await tokens_counter(self, user_id)
+        thisShit.conversation = self.conversation
+
+
+        if command == "/embed":
+            model = thisShit.embedding_model
+        else:
+            model = thisShit.chat_model
+
+        if command in ["/retry", "/vision"]:
+            command = conf.command_chat
+
+
+        logger.debug("Calling api")
+        responseapi = gptools.call_api(thisShit, command, user_id, media = None, model = model)
+        logger.debug("Continuing api processing")
+        placeholder_msg, response, status = await handle_api_response(thisShit, event, responseapi, placeholder_msg, task_id, c_button, command)
+        if not placeholder_msg and not response and not status:
+            return None
+        if command == "/embed":
+            await placeholder_msg.delete()
+        elif self.to_tts and status not in ["error"]:
+            await tts_wrap(thisShit, event, user_id, "/tts", task_id, bot_response = response)
+
+
+        self.conversation = thisShit.conversation
+        self.used_tokens += thisShit.used_tokens or 0
+        svars.total_tokens += thisShit.used_tokens or 0
+        self.session_tokens = (await calculate_token_length(self.conversation))
+        if response:
+            logger.info(f"💰 {svars.total_tokens} 💰")
+        if not self.memory:
+            await self.delete_conversation(event, user_id)
+    except Exception as e:
+        raise Exception(f"do_ask: {str(e)}")
 
 async def extract_prompt(self, event, user_id, command, transcription, buttons, file_meta = {}):
     placeholder_msg = None
@@ -100,7 +169,7 @@ async def extract_prompt(self, event, user_id, command, transcription, buttons, 
             list_convo[0]["content"] = f'{prompt}\n> .{file_meta["mime"]} context:({vision})'
         if check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in conf.allowed_chat_mimetypes):
             file_meta = await extract_media(event, file_meta)
-            list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
+            list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"].decode("utf-8")}]'})
         logger.debug(f'Returning prompt: {list_convo}')
         return placeholder_msg, list_convo, thisShit
     except Exception as e:
@@ -129,7 +198,6 @@ async def handle_summarize(self, user_id, conversation_text = None):
     except Exception as e:
         raise Exception(f'handle_summarize: {str(e)}')
 
-
 async def tokens_counter(self, user_id):
     try:
         current_token_length = await calculate_token_length(self.conversation)
@@ -151,7 +219,6 @@ async def tokens_counter(self, user_id):
 
     except Exception as e:
         raise Exception(f'tokens_counter: {str(e)}')
-
 
 async def process_response_chunk(event, response, done_parts, placeholder_msg, status, c_button):
     try:
@@ -184,7 +251,6 @@ async def process_response_chunk(event, response, done_parts, placeholder_msg, s
         pass
     except Exception as e:
         raise Exception(f"process_response_chunk: {str(e)}")
-
 
 async def handle_api_response(self, event, responseapi, placeholder_msg, task_id, c_button, command = None):
     try:
@@ -268,80 +334,6 @@ async def update_conversation_history(self, response):
     except Exception as e:
         raise Exception(f"update_conversation_history: {str(e)}")
 
-async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
-    if transcription:
-        command = conf.command_chat
-    thisShit = None
-    try:
-
-        task = do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id)
-        msg = await add_task(conf.command_chat, user_id, task, task_id)
-        if not msg: return
-        elif msg == "CantAddMore":
-            await send_msg(event, text = "🫸🫨🫷")
-        return
-    except Exception as e:
-        logger.error(f"ask_wrap: {str(e)}")
-
-
-async def do_ask(self, thisShit, file_meta, event, user_id, command, transcription, task_id):
-    prompt_list = None
-    placeholder_msg = None
-
-    try:
-        c_button = await gcb(conf.command_chat, task_id)
-        placeholder_msg, prompt_list, thisShit = await extract_prompt(self, event, user_id, command, transcription, c_button, file_meta)
-        if not prompt_list or not thisShit:
-            return None
-        
-        if "gpt-3.5-turbo" in self.chat_model:
-            self.chat_model = "gpt-4o-mini"
-            thisShit.chat_model = "gpt-4o-mini"
-
-        if not placeholder_msg:
-            placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
-
-        logger.debug(command)
-
-        
-        logger.debug(self.conversation)
-        if command != "/retry":
-            self.conversation.extend(prompt_list)
-            await tokens_counter(self, user_id)
-        thisShit.conversation = self.conversation
-
-
-        if command == "/embed":
-            model = thisShit.embedding_model
-        else:
-            model = thisShit.chat_model
-
-        if command in ["/retry", "/vision"]:
-            command = conf.command_chat
-
-
-        logger.debug("Calling api")
-        responseapi = gptools.call_api(thisShit, command, user_id, media = None, model = model)
-        logger.debug("Continuing api processing")
-        placeholder_msg, response, status = await handle_api_response(thisShit, event, responseapi, placeholder_msg, task_id, c_button, command)
-        if not placeholder_msg and not response and not status:
-            return None
-        if command == "/embed":
-            await placeholder_msg.delete()
-        elif self.to_tts and status not in ["error"]:
-            await tts_wrap(thisShit, event, user_id, "/tts", task_id, bot_response = response)
-
-
-        self.conversation = thisShit.conversation
-        self.used_tokens += thisShit.used_tokens or 0
-        svars.total_tokens += thisShit.used_tokens or 0
-        self.session_tokens = (await calculate_token_length(self.conversation))
-        if response:
-            logger.info(f"💰 {svars.total_tokens} 💰")
-        if not self.memory:
-            await self.delete_conversation(event, user_id)
-    except Exception as e:
-        raise Exception(f"do_ask: {str(e)}")
 
 async def gen_random_name(length=6):
     try:

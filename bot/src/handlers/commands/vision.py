@@ -25,7 +25,7 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
     self.conversation = [
         {"role": "user", "content": [
             {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": doc, "detail": "high"}}
+            {"type": "image_url", "image_url": {"url": doc, "detail": "low"}}
             ]}
         ]
     self.max_tokens = 4095

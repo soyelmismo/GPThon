@@ -84,7 +84,10 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                 continue
             else:
                 trying = False
-                yield "Cancelled", "cancel"
+                if command != command_image:
+                    yield "Cancelled", "cancel"
+                else:
+                    yield "Cancelled", None, "cancel"
         except Exception as e:
             if tries == 3:
                 raise ConnectionRefusedError(f'Error in call_api: {str(e)}')

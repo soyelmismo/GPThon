@@ -129,9 +129,9 @@ allowed_in_groups = ["status", "download", "answer_stt",
                      "raw", "improve_prompt", "style_name", "ratio", "raw"]
 
 warnings = {
-    "/select": f"⚙️👎🫵 {', '.join(f'`.{arg}`' for arg in all_args["/select"])}",
-    command_chat: f"💬👎🫵 {', '.join(f'`.{arg}`' for arg in all_args[command_chat])}",
-    command_image: f"🎨👎🫵 {', '.join(f'`.{arg}`' for arg in all_args[command_image])}",
+    "/select": f'⚙️👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args['/select'])}%%',
+    command_chat: f'💬👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args[command_chat])}%%',
+    command_image: f'🎨👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args[command_image])}%%',
 }
 
 

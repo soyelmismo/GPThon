@@ -81,6 +81,7 @@ async def manage_stream_response(thisShit, res_text, response):
             logger.debug(f'Chunk: {chunk} <---- Chunk')
             res_text += getattr(chunk.choices[0].delta, 'content', "") or ""
             fr = str(chunk.choices[0].finish_reason).lower()
+            logger.debug(fr)
             if fr in ["stop", "length"]:
                 if not res_text:
                     raise ValueError(f'"{res_text}" inexistent')
@@ -140,6 +141,8 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                 resser = stream_type[payload["stream"]]
                 outsider = True
                 async for res_text, status in resser(thisShit, res_text, response):
+                    if "您今日的USD" in res_text:
+                        raise BrokenPipeError("API is too poor to provide responses.")
                     if status in ["stop", "stall"]:
                         await update_total_reqs(command, api, payload["model"], user_id, 1)
                     if status == "stall":

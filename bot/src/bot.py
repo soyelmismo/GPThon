@@ -1,18 +1,13 @@
 from re import escape
-from telethon.events import CallbackQuery, NewMessage
-from telethon.types import BotCommand, BotCommandScopeDefault
+from asyncio import sleep
+from bot.src.logs import logger
 from telethon import TelegramClient
 from telethon.functions import bots
-
-from bot.src.handlers.gateway import gateway, cancel_callback
-from bot.src.handlers.tasks import tasks_identifier
-from asyncio import sleep
-
-import bot.src.config as conf
-from bot.src.logs import logger
-from bot.src.handlers.tasks import monitor_tasks
-import bot.src.handlers.database as rdb
-from bot.src import constants as c
+from telethon.tl.types import MessageEntityBlockquote
+from telethon.events import CallbackQuery, NewMessage
+from telethon.types import BotCommand, BotCommandScopeDefault
+from telethon.extensions.markdown import DEFAULT_DELIMITERS
+DEFAULT_DELIMITERS['%%'] = lambda *a, **k: MessageEntityBlockquote(*a, **k, collapsed=True)
 
 try:
     from bot.src.tools.api_utils.model_indexer import models_grabber
@@ -20,6 +15,12 @@ try:
 except ImportError:
     models_grabber = False
     logger.info("Any model can be set.")
+from bot.src.handlers.gateway import gateway, cancel_callback
+from bot.src.handlers.tasks import tasks_identifier
+from bot.src.handlers.tasks import monitor_tasks
+from bot.src.handlers import database as rdb
+from bot.src import constants as c
+from bot.src import config as conf
 
 
 async def register_events():
@@ -32,7 +33,7 @@ async def register_events():
     conf.bot.add_event_handler(gateway, NewMessage(
     pattern = r'(^' + conf.command_chat + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
-    
+
     conf.bot.add_event_handler(gateway, NewMessage(
     pattern = r'(^/embed(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
@@ -81,7 +82,6 @@ async def register_events():
         commands = commands_list
     ))
 
-
 async def post_init():
     conf.bot_data = await conf.bot.get_me()
     rdb.start_db()
@@ -99,13 +99,12 @@ async def post_init():
     await conf.send_logs_to_channel(msg)
     logger.info(msg)
 
-
 def start_bot():
     """Start the bot."""
 
     conf.bot = TelegramClient(conf.session_name, conf.api_id, conf.api_hash).start(bot_token=conf.bot_token)
     conf.bot.parse_mode = 'md'
-
+    
     conf.bot.loop.run_until_complete(post_init())
 
     #conf.bot.loop.run_forever()
@@ -114,4 +113,3 @@ def start_bot():
     #await conf.bot.run_until_disconnected()
     conf.bot.loop.run_until_complete(rdb.db.flush_task(force = 1))
     logger.info("Closing")
-

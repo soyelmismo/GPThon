@@ -14,44 +14,56 @@ from bot.src.handlers.commands.ask import ask_wrap
 
 
 status_blacklist: list = ["conversation",
-                       "sysprompt", "user_id",
-                       "user_ids_index", "embedding_model",
-                       "owners", "last_seen", "debug"
+                        "sysprompt", "user_id",
+                        "user_ids_index", "embedding_model",
+                        "last_seen", "debug"
                     ]
 
 class UserPrepare():
     def __init__(self) -> None:        
-        self.group_mode: bool = False
-        self.random_names: bool = True
         self.session_tokens: int = 0
-        self.used_tokens: int = 0
+
         self.chat_model: str = co.session_default_chat_model
         self.img_model: str = co.session_default_img_model
         self.improve_model: str = text_improve_model
         self.vision_model: str = default_vision_model
         self.tool_model: str = default_tool_model
         self.embedding_model: str = default_embedding_model
-        self.tts_voice: str = default_tts_voice
-        self.streaming: bool = True
+
+        self.memory: bool = True
+
+        self.used_tokens: int = 0
+
         self.transcribe: bool = False
         self.answer_stt: bool = False
-        self.to_tts: bool = False
-        self.roleplaying: bool = False
-        self.memory: bool = True
+        self.stt_language = None
+
         self.max_tokens: int = 1024
-        self.seed: int | None = None
+
         self.temperature: float = 1.0
         self.top_p: float = 1.0
         self.frequency_penalty: float = 0.0
         self.presence_penalty: float = 0.0
+        self.seed: int | None = None
+
+        self.group_mode: bool = False
+        self.random_names: bool = True
+
+        self.streaming: bool = True
+        self.roleplaying: bool = False
         self.randomizer: bool = False
-        self.stt_language = None
         self.summarize: bool = True
         self.tool_call: bool = False
-        self.sysprompt: str = ""
-        self.user_id: str  = ''
+
+        self.tts_voice: str = default_tts_voice
+        self.to_tts: bool = False
+
         self.groups: set = set()
         self.owners: set = set()
+
+        self.sysprompt: str = ""
+
+        self.user_id: str  = ''
         self.user_ids_index: dict = dict()
         self.last_seen: datetime = datetime.now()
         self.debug: bool = False
@@ -102,7 +114,7 @@ class UserPrepare():
             blist.extend(["tool_model"])
 
         for key, value in vars(self).items():
-            if key == "groups":
+            if key in ["groups", "owners"]:
                 value = len(value)
                 if not value:
                     continue
@@ -111,17 +123,18 @@ class UserPrepare():
             lines.append(f'{key}: {value!r}')
         return '\n'.join(lines[:-1]) + '\n'
 
-    def get_custom_sysprompt(self) -> list[dict]:
-        new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
-        if self.tool_call:
+    def get_custom_sysprompt(self, liste = []) -> list[dict]:
+        if self.sysprompt != "empty":
+            new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
+            if self.tool_call:
 
-            new_system += f"\n\nRemember to use ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
-            new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
+                new_system += f"\n\nRemember to use ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
+                new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
 
-        liste = [{"role": "system", "content": new_system}]
+            liste = [{"role": "system", "content": new_system}]
 
-        if self.roleplaying:
-            liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
+            if self.roleplaying:
+                liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
     async def request_wrap(self, event, user_id, command = None) -> None:

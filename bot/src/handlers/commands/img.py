@@ -19,7 +19,7 @@ async def img_wrap(self, event, user_id, command, task_id):
     msg = await add_task(command, user_id, task, task_id)
     if msg == "CantAddMore":
         return await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
-    return
+    return None
 
 async def do_img(thisShit, user_id, event, placeholder_msg, command):
     images = None
@@ -27,7 +27,7 @@ async def do_img(thisShit, user_id, event, placeholder_msg, command):
     images, resos, status = await wait_for(responseapi.__anext__(), 60)
     if status == "cancel":
         await placeholder_msg.delete()
-        return
+        return "cancel"
 
     if isinstance(images, list):
         async with event.client.action(entity=event.chat_id, action='photo'):

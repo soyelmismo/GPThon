@@ -3,7 +3,6 @@ from datetime import datetime
 from asyncio import sleep, Lock
 import redis.asyncio as redis
 
-
 import bot.src.config as conf
 from bot.src.logs import logger
 from bot.src.handlers import tasks
@@ -11,87 +10,99 @@ from bot.src.handlers.userclass import UserPrepare
 
 SAVE_MINUTES = 10 if conf.save_db_bandwidth else 1
 
-class IndexGroupInstances:
+class RedisClient:
+    def __init__(self, url, encoding="utf-8", decode_responses=True):
+        self.client = redis.from_url(url=url, encoding=encoding, decode_responses=decode_responses)
 
-    def __init__(self, loop):
-        self.redis = False
-        self.r = None
+    def ping(self):
+        return self.client.ping()
+
+    async def hgetall(self, key):
+        return await self.client.hgetall(key)
+
+    async def hset(self, key, mapping):
+        async with self.client.pipeline() as pipe:
+            await pipe.hset(key, mapping=mapping)
+            await pipe.execute()
+
+    async def delete(self, *keys):
+        return await self.client.delete(*keys)
+
+    async def keys(self, pattern):
+        return await self.client.keys(pattern)
+
+
+class IndexGroupInstances:
+    def __init__(self, loop, redis_client=None, ttl=2592000, save_each=SAVE_MINUTES * 60):
+        self.redis_client = redis_client
+        self.r: redis.Redis = None
         self.lock = Lock()
         self.index = {}
-        self.ttl = 2592000
-        self.save_each = SAVE_MINUTES * 60
-        self.loop = loop  # Use the existing event loop
+        self.ttl = ttl
+        self.save_each = save_each
+        self.loop = loop
+        
+        if redis_client:
+            self.redis_enabled = True
+            
+        else:
+            self.redis_enabled = False
 
     async def initialize_redis(self):
-        if conf.redis_enabled:
-            
-            try:
-                if conf.redis_password and conf.redis_user:
-                    separator = ":"
-                    another = "@"
-                else:
-                    separator = ""
-                    another = ""
-                self.r = redis.from_url(
-                    url=f"redis://{conf.redis_user}{separator}{conf.redis_password}{another}{conf.redis_uri}",
-                    encoding="utf-8",
-                    decode_responses=True
-                )
-                response = await self.r.ping()  # Test Redis connection
-                if response:
-                    logger.info("Redis connected.")
-                self.redis = True
-            except Exception as e:
-                logger.error(f"Failed to connect to Redis: {str(e)}")
-                self.redis = False  # Fall back to in-memory storage
-        else:
-            logger.warning("No Redis password provided. In-memory cache only.")
-    
-    async def grab_class(self, chat_id= "", user_id= "", make_group=None):
         try:
-            mng = None
-            if chat_id != user_id:
-                if chat_id not in self.index:
-                    mng = UserPrepare()
-                    if self.redis:
-                        mng = await self.quick_query(chat_id, mng)
-                    async with self.lock:
-                        self.index[chat_id] = mng
-                else:
-                    mng = self.index[chat_id]
+            self.r = self.redis_client
+            response = await self.r.ping()
+            if response:
+                logger.info("Redis connected.")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {str(e)}")
 
-                if make_group:
-                    async with self.lock:
-                        mng.group_mode = True
-                        mng.user_id = user_id
-                        if not mng.owners:
-                            mng.owners.add(user_id)
-                        elif mng.owners:
-                            for owner_id in list(mng.owners):
-                                if owner_id in self.index:
-                                    break
-                            else:
-                                mng.owners.add(user_id)
+    async def _get_manager(self, id=None):
+        return self.index.get(id, None)
 
-                    return mng
-                if mng.group_mode:
-                    async with self.lock:
-                        self.index[chat_id].last_seen = datetime.now()
-                    return mng
+    async def _create_manager(self, chat_id=None, user_id=None):
+        mng = UserPrepare()
+        if self.redis_enabled:
+            mng = await self.quick_query(chat_id or user_id, mng)
+        async with self.lock:
+            self.index[chat_id or user_id] = mng
+        return mng
 
-            if user_id not in self.index:
-                mng = UserPrepare()
+    async def _create_group_chat(self, mng, user_id=None):
+        async with self.lock:
+
+            if not mng.owners:
+                mng.group_mode = True
                 mng.user_id = user_id
-                if self.redis:
-                    mng = await self.quick_query(user_id, mng)
-                async with self.lock:
-                    self.index[user_id] = mng
+                mng.owners.add(user_id)
 
-            else:
-                async with self.lock:
-                    self.index[user_id].last_seen = datetime.now()
-                mng = self.index[user_id]
+            elif mng.owners:
+                su_data = await self.r.hgetall(mng.user_id)
+                if not su_data:
+                    mng.owners.add(user_id)
+                    mng.owners.discard(mng.user_id)
+                    mng.user_id = user_id
 
+        return mng
+
+    async def grab_class(self, chat_id="", user_id="", make_group=None):
+        try:
+            if chat_id != user_id:
+                mng = await self._get_manager(chat_id)
+                if not mng:
+                    mng = await self._create_manager(chat_id = chat_id)
+                if make_group:
+                    mng = await self._create_group_chat(mng, user_id)
+                    if user_id in mng.owners:
+                        async with self.lock:
+                            self.index[user_id].groups.add(chat_id)
+                return mng
+
+            mng = await self._get_manager(user_id)
+            if not mng:
+                mng = await self._create_manager(user_id = user_id)
+            async with self.lock:
+                mng.last_seen = datetime.now()
             return mng
 
         except Exception as e:
@@ -103,47 +114,33 @@ class IndexGroupInstances:
         if id_data:
             logger.debug(f"Recovering data from Redis: {id}")
             await obj.from_dict(id_data)
-
         return obj
-            
-    async def save_to_redis(self, key, data_dict):
-        """Save an object in Redis with a TTL."""
-        if not self.redis:
-            return
 
-        async with self.r.pipeline() as pipe:
-            await pipe.hset(key, mapping=data_dict)
-            await pipe.execute()
+    async def save_to_redis(self, key, data_dict):
+        await self.r.hset(key, mapping=data_dict)
         logger.debug(f"Saved {key} to Redis.")
 
     async def remove_old_db_ids(self):
-        if self.redis:
-            keys = await self.r.keys('*')
-        else:
-            keys = [*self.index.keys()]
+        keys = await self.r.keys('*') if self.redis_enabled else [*self.index.keys()]
         accum = 0
         for key in keys:
-            if self.redis:
+            if self.redis_enabled:
                 id_data = await self.r.hgetall(key)
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
-                if key in self.index:
-                    last_seen = self.index[key].last_seen
+                last_seen = self.index[key].last_seen if key in self.index else None
             if await date_calc(last_seen) > self.ttl and key in self.index:
                 async with self.lock:
                     del self.index[key]
-
                 logger.info(f"Deleting ID {key} from database: TTL")
                 accum += 1
-                if self.redis:
+                if self.redis_enabled:
                     await self.r.delete(key)
         if accum:
-            logger.info(f"Purged {accum} chats from database. 👍")
+            logger.info(f"Purged {accum} chats from database.")
 
     async def flush_memory(self):
-        """Backup all in-memory objects to Redis (and clear from memory?)."""
-        if self.redis and len(self.index):
-            # Save and remove all chats from memory
+        if self.redis_enabled and len(self.index):
             logger.info("Backup in-memory objects to Redis...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
@@ -152,86 +149,82 @@ class IndexGroupInstances:
                     msg = f"Chat {id} uploaded"
                     if not conf.save_db_bandwidth and (exec_date - self.index[id].last_seen).total_seconds() > 60:
                         async with self.lock:
-                            del self.index[id]  # Clear from in-memory once saved
+                            del self.index[id]
                             msg += " and deleted locally."
                     logger.info(msg)
-
         await self.remove_old_db_ids()
 
-    async def flush_task(self, force = 0):
-        """Schedule the flush task."""
-        if not force and self.redis:
+    async def flush_task(self, force=0):
+        if not force and self.redis_enabled:
             logger.info(f"Scheduled to flush memory every {self.save_each} seconds.")
         try:
-            if self.redis:
+            if self.redis_enabled:
                 while True:
                     if not force:
                         await sleep(self.save_each)
                     await self.flush_memory()
                     if force:
                         logger.info("Force flushing done.")
-                        break 
-            elif not self.redis and force:
-                return logger.warning("Tried to flush database forcibly, but Redis not detected.")
-            elif not self.redis and not force:
-                return logger.warning("Redis not detected. Flush scheduling disabled.")
+                        break
+            else:
+                if force:
+                    logger.warning("Tried to flush database forcibly, but Redis not detected.")
+                else:
+                    logger.warning("Redis not detected. Flush scheduling disabled.")
         except Exception as e:
             logger.error(f"Error in schedule_flush: {str(e)}")
             raise e
 
+    async def _delete_from_groups(self, id: str):
+        indexed_deletions = [id]
+
+        for group in list(self.index[id].groups):
+            group_data = None
+            if group in self.index:
+                group_data = self.index[group]
+                owners = group_data.owners
+            elif self.redis_enabled:
+                group_data = await self.r.hgetall(group)
+                if group_data:
+                    owners = set(loads(group_data["owners"])["value"])
+            
+            if group_data:
+                owners.discard(id)
+                if not len(owners):
+                    logger.debug(f'Grupo {group} siendo eliminado completamente. No más usuarios.')
+                    indexed_deletions.append(group)
+        
+        return indexed_deletions
+
     async def burn_me(self, id: str):
         try:
-            logger.debug(f'Deleting id data: {id}')
-            indexed_deletions = [id]
-            if id in self.index:
-                logger.debug(f'Removing user {id} from databases')
-                async with self.lock:
-                    logger.debug(f'User found in index: {id}')
-
-                    for group in list(self.index[id].groups):
-                        group_data = None
-                        logger.debug(f'User have groups, deleting groups if possible: {id}')
-                        logger.debug(f'Removing user {id} from group {group}')
-                        if group in self.index:
-                            group_data = self.index[group]
-                            if group_data:
-                                owners = self.index[group].owners
-                        elif self.redis:
-                            logger.debug(f'Checking for this group {group} in database: user {id}')
-                            group_data = await self.r.hgetall(group)
-                            if group_data:
-                                owners = set(loads(group_data["owners"])["value"])
-
-                        if group_data:
-                            owners.discard(id)
-                            if not len(owners):
-                                logger.debug(f'Group {group} being deleted completely. No more users. Triggered by {id}')
-                                self.index.pop(group, None)
-                                indexed_deletions.append(group)
-                    self.index.pop(id, None)
-                if self.redis:
-                    await self.r.delete(*indexed_deletions)
-                return 1
-            return 0
+            logger.debug(f'Removiendo usuario {id} de la base de datos')
+            indexed_deletions = await self._delete_from_groups(id)
+            
+            async with self.lock:
+                for del_id in indexed_deletions:
+                    self.index.pop(del_id, None)
+            
+            if self.redis_enabled:
+                await self.r.delete(*indexed_deletions)
+            
+            return 1
         except Exception as e:
-            logger.error(f'Error during burn_me operation for id {id}: {str(e)}')
-            return 0  # Handle failure gracefully
+            logger.error(f'Error durante la operación burn_me para id {id}: {str(e)}')
+            return 0
 
     async def burn_group(self, id: str):
+        deleted = False
         try:
             logger.debug(f'Deleting group data: {id}')
-            if id in self.index:
-                logger.debug(f'Removing group {id} from databases')
-                async with self.lock:
-                    logger.debug(f'Group {id} being deleted completely.')
-                    del self.index[id]
-                if self.redis:
-                    await self.r.delete(id)
-                return 1
-            return 0
+            async with self.lock:
+                deleted = self.index.pop(id, False)
+            if self.redis_enabled:
+                deleted = await self.r.delete(id)
+            return bool(deleted)
         except Exception as e:
             logger.error(f'Error during burn_me operation for id {id}: {str(e)}')
-            return 0  # Handle failure gracefully
+            return 0
 
     async def set(self, id: str, attr: str, value: int | str | dict | float):
         try:
@@ -245,10 +238,7 @@ async def to_dict(obj):
         data = {}
         for key, value in obj.__dict__.items():
             if isinstance(value, set):
-                data[key] = dumps({
-                    "type": "set",
-                    "value": list(value)  # Convert set to list for JSON serialization
-                })
+                data[key] = dumps({ "type": "set", "value": list(value) })
             elif isinstance(value, bool):
                 data[key] = dumps({"type": "bool", "value": int(value)})
             elif isinstance(value, (str, int, float)):
@@ -265,15 +255,15 @@ async def to_dict(obj):
     except Exception as e:
         logger.error(f'Error in to_dict: {str(e)}\n\nKey: {key}:\nValue: {value}')
 
-async def date_calc(old_date, return_str = False):
+async def date_calc(old_date, return_str=False):
     if not isinstance(old_date, datetime):
         try:
             old_date = datetime.fromisoformat(old_date)
             if return_str:
                 return old_date
         except ValueError:
-            logger.error(f"error in date_calc: string isn't a valid datetime")
-            return
+            logger.error("error in date_calc: string isn't a valid datetime")
+            return None
 
     now_date = datetime.now()
     return (now_date - old_date).total_seconds()
@@ -281,4 +271,8 @@ async def date_calc(old_date, return_str = False):
 db = None
 def start_db():
     global db
-    db = IndexGroupInstances(conf.bot._loop)
+    redis_client = None
+    if conf.redis_enabled:
+        redis_url = f"redis://{conf.redis_user}:{conf.redis_password}@{conf.redis_uri}" if conf.redis_user and conf.redis_password else f"redis://{conf.redis_uri}"
+        redis_client = RedisClient(redis_url)
+    db = IndexGroupInstances(conf.bot._loop, redis_client)

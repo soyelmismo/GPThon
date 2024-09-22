@@ -9,4 +9,3 @@ if __name__ == '__main__':
     logger.info("🤖 0.2")
     
     start_bot()
-    

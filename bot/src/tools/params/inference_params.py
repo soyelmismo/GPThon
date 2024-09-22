@@ -55,7 +55,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 thisShit.warning = {"text": "🫡", "file": file, "force_document": True, "disable_delete": True}
                 break
             case "status":
-                thisShit.warning = {"text": f'```\n{cls.to_string()}```', "disable_delete": True}
+                thisShit.warning = {"text": f'%%\n{cls.to_string()}%%', "disable_delete": True}
                 break
             case "group_mode" | "random_names" | "authorize" | "deauthorize":
                 value = await p_group(cls, arg, value, chat_id, user_id)

@@ -19,6 +19,8 @@ async def get_conversation(thisShit, user_id = None, summary = None):
         previous_context_backup = ""
         previous_context_tokens = 0
         t_convo = ""
+        if len(thisShit.conversation) == 0:
+            return None
         if summary:
             thisShit.conversation.pop()
         for item in thisShit.conversation:

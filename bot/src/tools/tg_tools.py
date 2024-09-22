@@ -5,7 +5,7 @@ from bot.src.logs import logger
 from asyncio import sleep, CancelledError
 from telethon.errors.rpcerrorlist import MessageDeleteForbiddenError
 from io import BytesIO
-from re import search
+from re import search, sub
 
 
 command_list = [c.command_chat,
@@ -58,6 +58,7 @@ async def is_bot_mentioned(event):
     try:
         message = event.message
         command = str(message.message).split(" ")[0].split("\n")[0].lower().strip()
+        command = sub(r'[^\w]+$','', command)
         bot_alias = ""
 
         audio = (event.message.document and event.message.document.mime_type.startswith("audio"))

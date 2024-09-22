@@ -11,6 +11,9 @@ async def generate_image(thisShit, model, user_id, command):
     response = None
     img_pending = True
     images = None
+    img_list = None
+    resolutions = None
+    img_prompt = None
     models_to_check = c.img_models.keys() if not c.img_models.get(thisShit.img_model) else [thisShit.img_model]
     while img_pending:
         for model in models_to_check:
@@ -55,9 +58,6 @@ async def generate_image(thisShit, model, user_id, command):
                     await update_total_reqs(command, img_api, model, user_id, 1)
                     yield img_list, resolutions, img_prompt
                     img_pending = False
-                except CancelledError as e:
-                    img_pending = False
-                    raise e
                 except Exception as e:
                     await update_total_reqs(command, img_api, model, user_id, 0, response, e)
                     logger.error(f"image generation exception: {str(e)}... {response}")

@@ -4,8 +4,9 @@ from bot.src.config import bot_prompts, max_input_tokens
 from random import choice
 from bot.src.logs import logger
 from bot.src.tools.api_utils import apis_frontend as oai
+import bot.src.tools.api_utils.api_selector as api_datas
 from hashlib import sha1
-from re import compile, findall
+from re import compile, findall, split
 
 
 from bot.src.tools.params.longAssDicts import shortened_args, img_ratios, iso_639_codes, iso_639_codes_txt
@@ -18,7 +19,7 @@ async def extract_prompt_args(this):
     try:
         splat = findall(pattern, this)
         finds = [arg[0].strip()[1:] for arg in splat]
-        return this.split(" .")[0], finds
+        return split(r'(?<!["\'`])[\s\n]\.(?!["\'`])', this)[0].strip(), finds
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
         return this, None
@@ -128,9 +129,11 @@ async def p_floats(thisShit, arg, value):
 
 async def max_value_param(arg, value):
     try:
-        if arg in ["temperature", "top_p"]:
+        if arg in ["temperature"]:
             pmin, pmax = 0, 2
-        elif arg in ["presence_penalty", "presence_penalty"]:
+        elif arg in ["top_p"]:
+            pmin, pmax = 0, 1
+        elif arg in ["presence_penalty", "frequency_penalty"]:
             pmin, pmax = -2, 2
         else:
             pmin, pmax = 1024, max_input_tokens
@@ -141,8 +144,6 @@ async def max_value_param(arg, value):
         raise e
     finally:
         return abs(int(value)) if arg == "max_tokens" else value
-
-
 
 async def p_auto_bool(thisShit, arg, value, just_return = None):
     try:
@@ -174,7 +175,16 @@ async def p_models(thisShit, arg, value):
                             )
             if models_dict:
                 if value in ["r", "random", "a", "any"]:
-                    value = choice(list(models_dict.keys()))
+                    models_list = list(models_dict.keys())
+                    while True:
+                        selected_model = choice(models_list)
+                        if len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
+                            logger.warning(f'{selected_model} only supported by fresed, but fresed is rate-limited.')
+                            continue
+                        else:
+                            value = selected_model
+                            break
+                        
                 elif not value or value not in models_dict:
                     models_file = (
                                    c.img_models_txt if arg in ["img_model"]
@@ -204,7 +214,7 @@ async def p_sysprompt(cls, thisShit, value, event, user_id):
             thisShit.warning = "🫵🤡🤣"
             return
         elif value:
-            if value == "None":
+            if value == "reset":
                 value = ""
                 thisShit.sysprompt = str(value)
             else:
