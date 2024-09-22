@@ -2,7 +2,7 @@ from asyncio import CancelledError
 from bot.src.logs import logger
 
 from bot.src.tools.general_tools.image_tools import download_images_list
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 
 import bot.src.constants as c
 
@@ -14,7 +14,7 @@ async def generate_image(thisShit, model, user_id, command):
     img_list = None
     resolutions = None
     img_prompt = None
-    models_to_check = c.img_models.keys() if not c.img_models.get(thisShit.img_model) else [thisShit.img_model]
+    models_to_check = c.img_models if not c.img_models.get(thisShit.img_model) else [thisShit.img_model]
     while img_pending:
         for model in models_to_check:
             temp_apis = await shuffle_apis(user_id, model, command)

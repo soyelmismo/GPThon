@@ -3,10 +3,12 @@ from asyncio import wait_for
 from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
 from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
+from bot.src.tools.params.inference_params import extract_arguments
 from sys import _getframe
 
 async def img_wrap(self, event, user_id, command, task_id):
-    from bot.src.tools.params.inference_params import extract_arguments
+    
+    
     prompt = await remove_command(self.conversation, event, command)
 
     thisShit = await extract_arguments(self, event, prompt, command, user_id)
@@ -59,7 +61,6 @@ async def make_caption(data, resos):
         caption += f'👗 `{data.style_data[0]}`\n'
         caption += f'🤖 `{data.img_model}`'
         caption += f'\n📐 `{resos[0]}`'
+        return caption
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-    finally:
-        return caption

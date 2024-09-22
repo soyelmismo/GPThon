@@ -96,7 +96,7 @@ async def models_grabber():
             c.img_styles = conf.load(infile)
             c.img_styles_txt = BytesIO()
             c.img_styles_txt.name = '🎨👗.txt'
-            c.styles_str = "\n".join(f"- {key}" for key in c.img_styles.keys())
+            c.styles_str = "\n".join(f"- {key}" for key in c.img_styles)
             
             c.img_styles_txt.write(c.styles_str.encode('utf-8'))
             c.img_styles_txt.seek(0) # type: ignore

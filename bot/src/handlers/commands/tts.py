@@ -3,10 +3,11 @@ from asyncio import wait_for
 from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
 from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
+from bot.src.tools.params.inference_params import extract_arguments
 from io import BytesIO
 
 async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):
-    from bot.src.tools.params.inference_params import extract_arguments
+
     if not bot_response:
         prompt = await remove_command(self.conversation, event, command)
     else:

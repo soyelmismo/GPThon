@@ -1,6 +1,19 @@
+from bot.src.handlers.gateway import gateway, cancel_callback
+from bot.src.handlers.tasks import tasks_identifier
+from bot.src.handlers.tasks import monitor_tasks
+from bot.src.handlers import database as rdb
+from bot.src.logs import logger
+from bot.src import constants as c
+from bot.src import config as conf
+try:
+    from bot.src.tools.api_utils.model_indexer import models_grabber
+    logger.info("Imported custom models.")
+except ImportError:
+    models_grabber = False
+    logger.info("Any model can be set.")
+
 from re import escape
 from asyncio import sleep
-from bot.src.logs import logger
 from telethon import TelegramClient
 from telethon.functions import bots
 from telethon.tl.types import MessageEntityBlockquote
@@ -8,20 +21,6 @@ from telethon.events import CallbackQuery, NewMessage
 from telethon.types import BotCommand, BotCommandScopeDefault
 from telethon.extensions.markdown import DEFAULT_DELIMITERS
 DEFAULT_DELIMITERS['%%'] = lambda *a, **k: MessageEntityBlockquote(*a, **k, collapsed=True)
-
-try:
-    from bot.src.tools.api_utils.model_indexer import models_grabber
-    logger.info("Imported custom models.")
-except ImportError:
-    models_grabber = False
-    logger.info("Any model can be set.")
-from bot.src.handlers.gateway import gateway, cancel_callback
-from bot.src.handlers.tasks import tasks_identifier
-from bot.src.handlers.tasks import monitor_tasks
-from bot.src.handlers import database as rdb
-from bot.src import constants as c
-from bot.src import config as conf
-
 
 async def register_events():
     logger.info("Adding commands...")

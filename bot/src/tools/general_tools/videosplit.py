@@ -33,10 +33,10 @@ async def extract_photos(bytes, mime):
         cap.release()
 
         if not len(frames):
-            logger.error(f"extract_photos: couldn't extract images.")
+            logger.error("extract_photos: couldn't extract images.")
             return None
 
-        height, width, layers = frames[0].shape
+        height, width, _ = frames[0].shape
         resized_frames = [cv2.resize(frame, (width, height)) for frame in frames]
 
         # Crear cuadrícula automáticamente según los frames que tengamos

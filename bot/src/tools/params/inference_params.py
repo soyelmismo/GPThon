@@ -89,7 +89,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                     break
 
             case "photos":
-                await p_photos(thisShit, value, arg)
+                await p_photos(thisShit, value)
                 if not isinstance(thisShit.photos, int):
                     thisShit.warning = thisShit.photos
                     break

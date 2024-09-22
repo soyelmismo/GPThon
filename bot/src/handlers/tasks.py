@@ -75,34 +75,29 @@ async def add_task(task_type, user_id, task, task_id):
 
 async def cancel_task(task_type, user_id, task_id):
     user_lock = await get_user_lock(user_id)
-    message = None
-    logger.debug("Joining lock")
     async with user_lock:
-        logger.debug("Joined lock")
-        try:
-            if not index_tasks.get(user_id, {}).get(task_type):
-                logger.info(f"No tasks of {task_type}")
-                raise ModuleNotFoundError("Task not found")
+        if not index_tasks.get(user_id, {}).get(task_type):
+            return "🤡"
 
-            task = index_tasks[user_id][task_type].get(task_id, None)
-            if not task:
-                logger.info(f"No task found {task_id}")
-                message = "❓ 🤔 ❌"
-            else:
-                logger.info(f"Cancelling {task_type} {task_id}")
-                task.cancel(msg="Cancelled by user.")
-                await task
-        except ModuleNotFoundError:
-            message = "🤡"
+        task = index_tasks[user_id][task_type].get(task_id, None)
+        if not task:
+            return "❓ 🤔 ❌"
+
+        logger.info(f"Cancelling {task_type} {task_id}")
+        try:
+            task.cancel(msg="Cancelled by user.")
+            await task
         except CancelledError:
             logger.info(f"Task {task_type} - Task ID: {task_id} - User: {user_id} - Cancelled.")
-            message = "🫡✅"
+            return "🫡✅"
+        except Exception as e:
+            logger.error(f"Error cancelling task {task_type} {task_id}: {e}")
+            return "❌"
         finally:
             index_tasks.get(user_id, {}).get(task_type, {}).pop(task_id, None)
-            return message
-
 
 async def monitor_tasks(update_each_seconds=5):
+    last_total_users = 0
     while True:
         if len(index_tasks):
             users_to_remove = []
@@ -121,7 +116,13 @@ async def monitor_tasks(update_each_seconds=5):
                 del index_tasks[user_id]
                 del user_locks[user_id]
                 logger.debug(f"Removed user {user_id} from task index due to no active tasks.")
-            logger.info(f'Total users with tasks: {len(index_tasks)}: {list(index_tasks.keys())}')
+
+            total_users = len(index_tasks)
+            if total_users != last_total_users:
+                logger.info(f'Total users with tasks: {total_users}: {list(index_tasks)}')
+                last_total_users = total_users
         else:
-            logger.debug("No queued tasks")
+            if last_total_users != 0:
+                logger.info("No queued tasks")
+                last_total_users = 0
         await sleep(update_each_seconds)

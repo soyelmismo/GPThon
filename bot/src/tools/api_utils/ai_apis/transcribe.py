@@ -1,7 +1,7 @@
 from asyncio import CancelledError
 from bot.src.logs import logger
 
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 from bot.src.config import default_stt_model
 
 import bot.src.constants as c
@@ -14,7 +14,7 @@ async def request_transcription(thisShit, media, user_id, command):
         media = media[1]
         
 
-        models_to_check = c.whisper_models.keys() if c.whisper_models else [default_stt_model]
+        models_to_check = c.whisper_models if c.whisper_models else [default_stt_model]
         stt_pending = True
         while stt_pending:
             for model in models_to_check:

@@ -3,6 +3,9 @@ import bot.src.tools.api_utils.apis_frontend as oai
 from io import BytesIO
 from bot.src.logs import logger
 from sys import _getframe
+from tiktoken import get_encoding
+
+enc = get_encoding("cl100k_base")
 
 
 role_emojis = {
@@ -29,8 +32,6 @@ async def get_conversation(thisShit, user_id = None, summary = None):
                 content = "*Roleplay*"
             else:
                 content = item.get("content", "")
-                
-
 
             if summary:
                 match role:
@@ -79,8 +80,6 @@ async def get_conversation(thisShit, user_id = None, summary = None):
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
 
 
-from tiktoken import get_encoding
-enc = get_encoding("cl100k_base")
 async def calculate_token_length(conversation):
     total_tokens = 0
     if isinstance(conversation, list):

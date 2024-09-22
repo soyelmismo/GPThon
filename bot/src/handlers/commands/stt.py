@@ -1,25 +1,25 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
 from bot.src.tools.tg_tools import check_media_type, extract_media, edit_msg, remove_command
-from subprocess import call
-from tempfile import TemporaryDirectory
+from bot.src.tools.params.inference_params import extract_arguments
 from pathlib import Path
 from asyncio import wait_for
 from bot.src.logs import logger
 from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.config import command_stt
+from tempfile import NamedTemporaryFile
+
 from io import BytesIO
 import subprocess
-from tempfile import NamedTemporaryFile
 import os
 
 
 async def stt_wrap(self, event, user_id, task_id, command = command_stt):
-    from bot.src.tools.params.inference_params import extract_arguments
+
     placeholder_msg = None
     thisShit = None
     buttons = None
     file_meta = await check_media_type(event)
-    
+
     prompt = await remove_command(self.conversation, event, command)
     thisShit = await extract_arguments(self, event, prompt, command, user_id, file_meta = file_meta)
     if file_meta["type"] == "audio":
@@ -116,23 +116,5 @@ async def transcode_audio(file_meta):
 
     except subprocess.CalledProcessError as e:
         raise Exception(f'transcode_audio: SoX failed with exit code {e.returncode}')
-    except Exception as e:
-        raise Exception(f'transcode_audio: {str(e)}')
-        
-        
-        
-async def transcode_audio_2(file_meta):
-    try:
-        with TemporaryDirectory() as tmp_dir:
-            tmp_dir = Path(tmp_dir)
-            doc_path = tmp_dir / Path(file_meta["name"])
-            logger.debug(f"Doc path: {doc_path}")
-            with open(doc_path, "wb") as f:
-                f.write(file_meta["file"])
-            ogg_file_path = tmp_dir / "voice.ogg"
-            call(f"sox {doc_path} -c 1 -r 16000 -q {ogg_file_path} > /dev/null 2>&1", shell=True)
-            logger.debug(f"OGG path: {ogg_file_path}")
-            with open(ogg_file_path, "rb") as f:
-                return BytesIO(f.read())
     except Exception as e:
         raise Exception(f'transcode_audio: {str(e)}')

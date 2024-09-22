@@ -1,7 +1,7 @@
 
 from bot.src.logs import logger
 from asyncio import CancelledError
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 
 
 import bot.src.constants as c
@@ -11,7 +11,7 @@ import bot.src.constants as c
 async def request_embedding(thisShit, model, user_id, command):
     response = None
     try:
-        models_to_check = c.embed_models.keys() if not c.embed_models.get(thisShit.embedding_model) else [thisShit.embedding_model]
+        models_to_check = c.embed_models if not c.embed_models.get(thisShit.embedding_model) else [thisShit.embedding_model]
         embed_pending = True
         logger.debug("Set-up embeddings payload")
         payload = {

@@ -123,7 +123,7 @@ class IndexGroupInstances:
         logger.debug(f"Saved {key} to Redis.")
 
     async def remove_old_db_ids(self):
-        keys = await self.r.keys('*') if self.redis_enabled else [*self.index.keys()]
+        keys = await self.r.keys('*') if self.redis_enabled else [*self.index]
         accum = 0
         for key in keys:
             if self.redis_enabled:
@@ -149,7 +149,8 @@ class IndexGroupInstances:
                 if id not in tasks.index_tasks:
                     await self.save_to_redis(id, await to_dict(user_obj))
                     msg = f"Chat {id} uploaded"
-                    if not conf.save_db_bandwidth and (exec_date - self.index[id].last_seen).total_seconds() > 60:
+                    time_passed = (exec_date - self.index[id].last_seen).total_seconds()
+                    if not conf.save_db_bandwidth and time_passed > 60:
                         async with self.lock:
                             del self.index[id]
                             msg += " and deleted locally."
@@ -177,7 +178,7 @@ class IndexGroupInstances:
             logger.error(f"Error in schedule_flush: {str(e)}")
             raise e
 
-    async def _delete_from_groups(self, id: str):
+    async def _delete_from_groups(self, id):
         indexed_deletions = [id]
 
         for group in list(self.index[id].groups):
@@ -189,7 +190,7 @@ class IndexGroupInstances:
                 group_data = await self.r.hgetall(group)
                 if group_data:
                     owners = set(loads(group_data["owners"])["value"])
-            
+
             if group_data:
                 owners.discard(id)
                 if not len(owners):
@@ -198,7 +199,7 @@ class IndexGroupInstances:
         
         return indexed_deletions
 
-    async def burn_me(self, id: str):
+    async def burn_me(self, id):
         try:
             logger.debug(f'Removiendo usuario {id} de la base de datos')
             indexed_deletions = await self._delete_from_groups(id)
@@ -215,7 +216,7 @@ class IndexGroupInstances:
             logger.error(f'Error durante la operación burn_me para id {id}: {str(e)}')
             return 0
 
-    async def burn_group(self, id: str):
+    async def burn_group(self, id):
         deleted = False
         try:
             logger.debug(f'Deleting group data: {id}')
@@ -227,13 +228,6 @@ class IndexGroupInstances:
         except Exception as e:
             logger.error(f'Error during burn_me operation for id {id}: {str(e)}')
             return 0
-
-    async def set(self, id: str, attr: str, value: int | str | dict | float):
-        try:
-            setattr(await self.grab_class(id), attr, value)
-        except Exception as e:
-            logger.error(f'index write error: {id} - {attr} - {value} - {str(e)}')
-            raise e
 
 async def to_dict(obj):
     try:

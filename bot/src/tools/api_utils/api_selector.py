@@ -61,23 +61,22 @@ async def shuffle_apis(user_id, model, type) -> list[str]:
         elif type == "/tts":
             voice = model
             apis_with_voice = {}
-            for speech_model in c.speech_models:
-                voices = list(c.speech_models[speech_model]["voices"].keys())
-                shuffle(voices)
+            for speech_model, voices in c.speech_models.items():
                 if voice in voices:
                     if speech_model not in apis_with_voice:
                         apis_with_voice[speech_model] = []
-                    apis_with_voice[speech_model].extend(c.speech_models[speech_model]["voices"][voice])
-            for model_list in apis_with_voice.keys():
-                shuffle(apis_with_voice[model_list])
+                    apis_with_voice[speech_model].extend(voices[voice])
+            for _, apis in apis_with_voice:
+                shuffle(apis)
             temp_apis = apis_with_voice
         if type != "/tts":
             shuffle(temp_apis)
             if conf.exclusive_api_name in temp_apis:
                 temp_apis.remove(conf.exclusive_api_name)
-                temp_apis.append(conf.exclusive_api_name) if user_id in conf.exclusive_api_chat_ids else None
+                if user_id in conf.exclusive_api_chat_ids:
+                    temp_apis.append(conf.exclusive_api_name)
     else:
-        temp_apis = list(conf.openai_style_apis.keys())
+        temp_apis = list(conf.openai_style_apis)
 
     for api in rate_limited:
         if api in temp_apis:

@@ -1,4 +1,3 @@
-import bot.src.handlers.database as rdb
 from bot.src import constants as c
 from bot.src.config import bot_prompts, max_input_tokens
 from random import choice
@@ -31,17 +30,15 @@ async def extract_arg_value(item):
         arg = str(item.split(" ")[0]).strip()
         arg = shortened_args.get(arg, arg)
         value = " ".join(item.split(" ")[1:]).strip()
-        
+        return arg, value
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-    finally:
-        return arg, value
 
 async def manage_style(thisShit, style_name):
     style_prompt = None
     try:
         if style_name in ["r", "random", "a", "any"]:
-            style_name = choice([e for e in c.img_styles.keys() if e not in ["general", "raw"]])
+            style_name = choice([e for e in c.img_styles if e not in ["general", "raw"]])
         style_prompt = c.img_styles.get(style_name, None)
 
         if not style_prompt:
@@ -65,8 +62,8 @@ async def final_img_step(thisShit):
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
             
 
-photos_err = f"👎🫵 `.photos` `1` - `4`"
-async def p_photos(thisShit, value, arg):
+photos_err = "👎🫵 `.photos` `1` - `4`"
+async def p_photos(thisShit, value):
     
     try:
         value = int(value)
@@ -79,7 +76,7 @@ async def p_photos(thisShit, value, arg):
     finally:
         thisShit.photos = value
 
-ratios_err = f"👎🫵 {', '.join(f'`.r {ratio}`' for ratio in img_ratios.keys())}"
+ratios_err = f"👎🫵 {', '.join(f'`.r {ratio}`' for ratio in img_ratios)}"
 
 async def p_ratio(thisShit, value):
     try:
@@ -140,12 +137,11 @@ async def max_value_param(arg, value):
         else:
             pmin, pmax = 1024, max_input_tokens
         value = min(max(value, pmin), pmax)
+        return abs(int(value)) if arg == "max_tokens" else value
     except Exception as e:
         e = f"{_getframe().f_code.co_name}: {str(e)}"
         logger.error(e)
         raise e
-    finally:
-        return abs(int(value)) if arg == "max_tokens" else value
 
 async def p_auto_bool(thisShit, arg, value, just_return = None):
     try:
@@ -153,15 +149,14 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
             value = not getattr(thisShit, arg)
         else:
             value = value.lower() == 'true'
-    except Exception as e:
-        e = f"{_getframe().f_code.co_name}: {str(e)}"
-        logger.error(e)
-        raise e
-    finally:
         if not just_return:
             setattr(thisShit, arg, value)
         else:
             return value
+    except Exception as e:
+        e = f"{_getframe().f_code.co_name}: {str(e)}"
+        logger.error(e)
+        raise e
 
 model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
 
@@ -177,7 +172,7 @@ async def p_models(thisShit, arg, value):
                             )
             if models_dict:
                 if value in ["r", "random", "a", "any"]:
-                    models_list = list(models_dict.keys())
+                    models_list = list(models_dict)
                     while True:
                         selected_model = choice(models_list)
                         if len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
@@ -260,10 +255,11 @@ async def is_integer_string(value):
 
 # This is not mini
 async def p_group(thisShit, arg, value, chat_id, user_id):
+    import bot.src.handlers.database as rdb
     try:
         if chat_id == user_id:
             return {"text": "🤡 🫂❓", "delete_user_message":True}
-        if not (await is_integer_string(value)):
+        if not await is_integer_string(value):
             value = await p_auto_bool(thisShit, arg, value, just_return=True)
 
         if chat_id in rdb.db.index and rdb.db.index[chat_id].owners:
@@ -289,7 +285,7 @@ async def p_group(thisShit, arg, value, chat_id, user_id):
                             rdb.db.index[chat_id].owners.discard(value)
                         return {"text": f'🫡"`{value}` = 💩🤮"'}
                     else:
-                        return {"text": f"🤣🫵🤣🫵🤣🫵💩💩💩"}
+                        return {"text": "🤣🫵🤣🫵🤣🫵💩💩💩"}
             else:
                 return {"text": "🫂🔥 🚫", "delete_user_message": True}
         elif arg == "group_mode" and value:

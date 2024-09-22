@@ -1,6 +1,8 @@
 from bot.src.wrappers.rate_limiter import rate_limit_handler
 from bot.src.logs import logger
 from bot.src.tools.tg_tools import send_msg, remove_command, select_instance
+from bot.src.tools.params.inference_params import extract_arguments
+
 from sys import _getframe
 
 banned_attr = [
@@ -11,8 +13,7 @@ banned_attr = [
 
 @rate_limit_handler(3, 60)
 async def select(event, user_id, chat_id, command) -> None:
-    from bot.src.tools.params.inference_params import extract_arguments
-
+    
     try:
         notShit = await select_instance(chat_id, user_id)
         prompt = await remove_command(notShit.conversation, event, command)
