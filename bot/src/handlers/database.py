@@ -49,13 +49,14 @@ class IndexGroupInstances:
             self.redis_enabled = False
 
     async def initialize_redis(self):
-        try:
-            self.r = self.redis_client
-            response = await self.r.ping()
-            if response:
-                logger.info("Redis connected.")
-        except Exception as e:
-            logger.error(f"Failed to connect to Redis: {str(e)}")
+        if self.redis_enabled:
+            try:
+                self.r = self.redis_client
+                response = await self.r.ping()
+                if response:
+                    logger.info("Redis connected.")
+            except Exception as e:
+                logger.error(f"Failed to connect to Redis: {str(e)}")
 
     async def _get_manager(self, id=None):
         return self.index.get(id, None)
@@ -96,7 +97,8 @@ class IndexGroupInstances:
                     if user_id in mng.owners:
                         async with self.lock:
                             self.index[user_id].groups.add(chat_id)
-                return mng
+                if mng.group_mode:
+                    return mng
 
             mng = await self._get_manager(user_id)
             if not mng:
@@ -129,9 +131,9 @@ class IndexGroupInstances:
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
                 last_seen = self.index[key].last_seen if key in self.index else None
-            if await date_calc(last_seen) > self.ttl and key in self.index:
+            if await date_calc(last_seen) > self.ttl:
                 async with self.lock:
-                    del self.index[key]
+                    self.index.pop(key, None)
                 logger.info(f"Deleting ID {key} from database: TTL")
                 accum += 1
                 if self.redis_enabled:

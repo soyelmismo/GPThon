@@ -81,7 +81,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                     thisShit.warning = checkIt
                     break
 
-            case "temperature" | "top_p" | "frequency_penalty" | "presence_penalty" | "max_tokens":
+            case "temperature" | "top_p" | "frequency_penalty" | "presence_penalty" | "max_tokens" | "timeout":
                 await p_floats(thisShit, arg, value)
                 checkIt = getattr(thisShit, arg)
                 if isinstance(checkIt, str):

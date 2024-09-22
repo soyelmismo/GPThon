@@ -50,6 +50,7 @@ class UserPrepare():
         self.random_names: bool = True
 
         self.streaming: bool = True
+        self.timeout: float = 6.0
         self.roleplaying: bool = False
         self.randomizer: bool = False
         self.summarize: bool = True
@@ -123,18 +124,20 @@ class UserPrepare():
             lines.append(f'{key}: {value!r}')
         return '\n'.join(lines[:-1]) + '\n'
 
-    def get_custom_sysprompt(self, liste = []) -> list[dict]:
-        if self.sysprompt != "empty":
-            new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
-            if self.tool_call:
+    def get_custom_sysprompt(self) -> list[dict]:
+        if self.sysprompt == "empty":
+            return list()
+    
+        new_system = f'{self.sysprompt if self.sysprompt else bot_prompts.get("system", "")}'
+        if self.tool_call:
 
-                new_system += f"\n\nRemember to use ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
-                new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
+            new_system += f"\n\nRemember to use ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
+            new_system += "tools if user ask something related to its capabilities. Answers in the same user language."
 
-            liste = [{"role": "system", "content": new_system}]
+        liste = [{"role": "system", "content": new_system}]
 
-            if self.roleplaying:
-                liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
+        if self.roleplaying:
+            liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
     async def request_wrap(self, event, user_id, command = None) -> None:

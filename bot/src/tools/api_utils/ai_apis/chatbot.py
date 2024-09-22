@@ -47,7 +47,7 @@ async def manage_non_stream_response(thisShit, res_text, response):
         thisShit.used_tokens += tok
         yield res_text, "stop"
     except Exception as e:
-        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        raise f"{_getframe().f_code.co_name}: {str(e)}"
 
 
 async def process_function_data(functions, payload):
@@ -102,7 +102,7 @@ async def manage_stream_response(thisShit, res_text, response):
 
             yield res_text, "continue"
     except Exception as e:
-        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+        raise f"{_getframe().f_code.co_name}: {str(e)}"
 
 
 stream_type = {
@@ -140,43 +140,45 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
 
                 resser = stream_type[payload["stream"]]
                 outsider = True
-                async for res_text, status in resser(thisShit, res_text, response):
-                    if "您今日的USD" in res_text:
-                        raise BrokenPipeError("API is too poor to provide responses.")
-                    if status in ["stop", "stall"]:
-                        await update_total_reqs(command, api, payload["model"], user_id, 1)
-                    if status == "stall":
-                        response = "placeholder_empty_second_response"
-                        outsider = False
-                        logger.debug("Processing function call...")
+                try:
+                    async for res_text, status in resser(thisShit, res_text, response):
+                        if "您今日的USD" in res_text:
+                            raise BrokenPipeError("API is too poor to provide responses.")
+                        if status in ["stop", "stall"]:
+                            await update_total_reqs(command, api, payload["model"], user_id, 1)
+                        if status == "stall":
+                            response = "placeholder_empty_second_response"
+                            outsider = False
+                            logger.debug("Processing function call...")
 
-                        s_payload = await process_function_data(res_text, deepcopy(payload))
-                        thisShit.conversation = s_payload["messages"]
+                            s_payload = await process_function_data(res_text, deepcopy(payload))
+                            thisShit.conversation = s_payload["messages"]
 
-                        s_temp_apis = await shuffle_apis(user_id, model, command)
-                        for s_api in s_temp_apis:
-                            try:
-                                logger.debug(f"Joining second chat completion with {s_api}")
-                                s_payload["model"] = model
-                                s_res_text = ""
-                                s_client = await select_api_data(s_api)
+                            s_temp_apis = await shuffle_apis(user_id, model, command)
+                            for s_api in s_temp_apis:
                                 try:
-                                    second_response = await s_client.chat.completions.create(**s_payload)
-                                except APITimeoutError:
+                                    logger.debug(f"Joining second chat completion with {s_api}")
+                                    s_payload["model"] = model
+                                    s_res_text = ""
+                                    s_client = await select_api_data(s_api)
+                                    try:
+                                        second_response = await s_client.chat.completions.create(**s_payload)
+                                    except APITimeoutError:
+                                        continue
+                                    async for s_res_text, s_status in resser(thisShit, s_res_text, second_response):
+                                        if s_status in ["stop"]:
+                                            await update_total_reqs(command, s_api, s_payload["model"], user_id, 1)
+                                        yield s_res_text, s_status
+                                except Exception as s_e:
+                                    await update_total_reqs(command, s_api, s_payload["model"], user_id, 0, second_response, s_e)
+                                    logger.error(f"Error with {s_api}: {str(s_e)}")
                                     continue
-                                async for s_res_text, s_status in resser(thisShit, s_res_text, second_response):
-                                    if s_status in ["stop"]:
-                                        await update_total_reqs(command, s_api, s_payload["model"], user_id, 1)
-                                    yield s_res_text, s_status
-                            except Exception as s_e:
-                                await update_total_reqs(command, s_api, s_payload["model"], user_id, 0, second_response, s_e)
-                                logger.error(f"Error with {s_api}: {str(s_e)}")
-                                continue
-                        else:
-                            yield err, "error"
-                    elif outsider:
-                        yield res_text, status
-
+                            else:
+                                yield err, "error"
+                        elif outsider:
+                            yield res_text, status
+                except Exception as e:
+                    raise BufferError(f'Error iterating response. {api}, {payload["model"]} [res_test: {res_text}, status: {status}]: {str(e)}')
             except Exception as e:
                 await update_total_reqs(command, api, payload["model"], user_id, 0, response, e)
                 logger.error(f"Error with {api}: {str(e)}")
@@ -200,7 +202,7 @@ async def configure_payload(thisShit, model, command, quick):
             "model": model,
             "stream": False if quick else thisShit.streaming,
             "seed": thisShit.seed,
-            "timeout": Timeout(6, connect=4) if thisShit.streaming else Timeout(16, connect=4)
+            "timeout": thisShit.timeout if thisShit.timeout > 60 else 6 if thisShit.streaming else 15
         }
         if not quick and thisShit.tool_call and command == command_chat:
             payload["tools"] = functions_data

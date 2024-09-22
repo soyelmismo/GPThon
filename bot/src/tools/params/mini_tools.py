@@ -131,6 +131,8 @@ async def max_value_param(arg, value):
     try:
         if arg in ["temperature"]:
             pmin, pmax = 0, 2
+        elif arg in ["timeout"]:
+            pmin, pmax = 3, 600
         elif arg in ["top_p"]:
             pmin, pmax = 0, 1
         elif arg in ["presence_penalty", "frequency_penalty"]:

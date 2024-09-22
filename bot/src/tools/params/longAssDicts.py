@@ -25,22 +25,23 @@ all_args = {
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
-        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize"
+        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout"
         ],
 
     "/select": [
-        "streaming", "memory", "randomizer", "answer_stt", "chat_model", "img_model", "sysprompt",
-        "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens", "debug",
-        "status", "seed", "download", "group_mode", "random_names", "summarize",
-        "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
-        "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize", "deauthorize"
+        "streaming", "memory", "randomizer", "answer_stt", "chat_model", "img_model",
+        "sysprompt", "temperature", "top_p", "frequency_penalty", "presence_penalty",
+        "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
+        "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
+        "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize",
+        "deauthorize", "timeout"
         ],
 
 
     command_chat: [
         "streaming", "randomizer",
         "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
-        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model"
+        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout"
         ],
 
 
@@ -111,7 +112,8 @@ shortened_args = {
     "auth": "authorize",
     "deauth": "deauthorize",
     "allow": "authorize",
-    "disallow": "deauthorize"
+    "disallow": "deauthorize",
+    "out": "timeout"
 }
 
 allowed_no_value = [
@@ -126,7 +128,9 @@ allowed_no_value = [
 
 allowed_in_groups = ["status", "download", "answer_stt",
                      "stt_language", "transcribe", "stt_language",
-                     "raw", "improve_prompt", "style_name", "ratio", "raw"]
+                     "raw", "improve_prompt", "style_name", "ratio", "raw",
+                     "timeout"
+                     ]
 
 warnings = {
     "/select": f'⚙️👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args['/select'])}%%',
