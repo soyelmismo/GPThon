@@ -25,7 +25,7 @@ all_args = {
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
-        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout"
+        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget"
         ],
 
     "/select": [
@@ -41,7 +41,8 @@ all_args = {
     command_chat: [
         "streaming", "randomizer",
         "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
-        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout"
+        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout",
+        "memory", "download", "forget"
         ],
 
 
@@ -113,7 +114,8 @@ shortened_args = {
     "deauth": "deauthorize",
     "allow": "authorize",
     "disallow": "deauthorize",
-    "out": "timeout"
+    "out": "timeout",
+    "f": "forget"
 }
 
 allowed_no_value = [
@@ -122,7 +124,7 @@ allowed_no_value = [
 "img_model", "group_mode", "random_names", "streaming",
 "memory", "randomizer", "answer_stt", "improve_prompt",
 "summarize", "transcribe", "tool_call", "to_tts",
-"tts_voice", "debug", "raw", "embedding_model"
+"tts_voice", "debug", "raw", "embedding_model", "forget"
 
 ]
 

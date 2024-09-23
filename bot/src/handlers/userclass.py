@@ -137,9 +137,9 @@ class UserPrepare():
         return '\n'.join(lines[:-1]) + '\n'
 
     def get_custom_sysprompt(self) -> list[dict]:
-        if self.sysprompt == "empty":
+        if self.sysprompt in ["empty", "None"]:
             return list()
-    
+
         new_system = f'{self.sysprompt if self.sysprompt else conf.bot_prompts.get("system", "")}'
         if self.tool_call:
 
@@ -242,14 +242,12 @@ class UserPrepare():
         except Exception as e:
             raise Exception(f'tokens_counter: {str(e)}')
 
-    async def update_session_tokens(self, event, user_id, response, tokens_used: int):
+    async def update_session_tokens(self, response, tokens_used: int):
         self.used_tokens += tokens_used
         svars.total_tokens += tokens_used
         self.session_tokens = await calculate_token_length(self.conversation)
         if response:
             logger.info(f"💰 {svars.total_tokens} 💰")
-        if not self.memory:
-            await self.delete_conversation(event, user_id)
 
     async def group_mode_data_fetch(self, event):
         try:

@@ -51,8 +51,11 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
 
         match arg:
             case "download":
-                file = await get_conversation(thisShit, user_id=user_id)
-                thisShit.warning = {"text": "🫡", "file": file, "force_document": True, "disable_delete": True}
+                if command == "/select":
+                    file = await get_conversation(thisShit, user_id=user_id)
+                    thisShit.warning = {"text": "🫡", "file": file, "force_document": True, "disable_delete": True}
+                else:
+                    thisShit.download = True
                 break
             case "status":
                 thisShit.warning = {"text": f'%%\n{cls.to_string()}%%', "disable_delete": True}
@@ -71,7 +74,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 value = await p_sysprompt(cls, thisShit, value, event, user_id)
                 if thisShit.warning:
                     break
-            case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw":
+            case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget":
                 await p_auto_bool(thisShit, arg, value)
 
             case "chat_model" | "img_model" | "improve_model" | "vision_model" | "embedding_model" | "tool_model" | "tts_voice":

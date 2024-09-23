@@ -182,7 +182,9 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 replied = str(replied).replace(bot_mention, "").strip()
             if bot_command in [c.command_image, "/select", "/embed"]:
                 message = str(f"{replied} {message}").strip()
-            elif replied and str(conversation[-1]["content"]).strip() != replied:
+            elif replied and (
+                str(conversation[-1]["content"]).strip() if len(conversation)
+                else "") != replied:
                 message = str(f"\n> {replied}\n\n{message}")
             
     if sticker:

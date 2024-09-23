@@ -8,7 +8,7 @@ from sys import _getframe
 banned_attr = [
     "warning", "style_data", "style_name", "prompt",
     "ratio", "photos", "notification", "used_tokens",
-    "session_tokens", "raw"
+    "session_tokens", "raw", "forget", "download"
 ]
 
 @rate_limit_handler(3, 60)
@@ -22,7 +22,7 @@ async def select(event, user_id, chat_id, command) -> None:
             return None
 
         for key, value in thisShit.__dict__.items():
-            if key not in banned_attr:
+            if key not in banned_attr and not callable(value) and not key.startswith("__"):
                 setattr(notShit, key, value)
 
         if thisShit.notification:

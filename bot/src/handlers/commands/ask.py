@@ -9,6 +9,7 @@ from telethon.errors.rpcerrorlist import MessageNotModifiedError, MessageEmptyEr
 
 import bot.src.tools.api_utils.apis_frontend as gptools
 from bot.src.logs import logger
+from bot.src.tools.other_tools import get_conversation
 from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.handlers.commands.tts import tts_wrap
 
@@ -31,13 +32,12 @@ async def ask_gateway(event, user_id, chat_id, command) -> None:
         return await event.reply("🤡")
     class_to_call = await select_instance(chat_id, user_id)
 
-    return await class_to_call.request_wrap(event, user_id, command) # type: ignore
+    return await class_to_call.request_wrap(event, user_id, command)
 
 async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
     if transcription:
         command = conf.command_chat
     try:
-
         task = do_ask(self, file_meta, event, user_id, command, transcription, task_id)
         msg = await add_task(conf.command_chat, user_id, task, task_id)
         if not msg: return
@@ -50,7 +50,7 @@ async def ask_wrap(self, event, user_id, transcription, command, task_id, file_m
 async def do_ask(self, file_meta, event, user_id, command, transcription, task_id):
     prompt_list = None
     placeholder_msg = None
-
+    temporal_conversation = False
     try:
         c_button = await gcb(conf.command_chat, task_id)
         placeholder_msg, prompt_list, thisShit = await self.extract_prompt(
@@ -64,13 +64,22 @@ async def do_ask(self, file_meta, event, user_id, command, transcription, task_i
 
         logger.debug(command)
 
-
         logger.debug(self.conversation)
         if command != "/retry":
+            if not self.memory and not thisShit.memory:
+                await self.delete_conversation(event, user_id)
+
+            if thisShit.forget or (self.memory and not thisShit.memory):
+                temporal_conversation = True
+                if not thisShit.forget:
+                    await thisShit.delete_conversation(event, user_id)
+                thisShit.conversation.extend(prompt_list)
+                await thisShit.tokens_counter(user_id)
+
+        if not temporal_conversation:
             self.conversation.extend(prompt_list)
             await self.tokens_counter(user_id)
-        thisShit.conversation = self.conversation
-
+            thisShit.conversation = self.conversation
 
         if command == "/embed":
             model = thisShit.embedding_model
@@ -79,7 +88,6 @@ async def do_ask(self, file_meta, event, user_id, command, transcription, task_i
 
         if command in ["/retry", "/vision"]:
             command = conf.command_chat
-
 
         logger.debug("Calling api")
         responseapi = gptools.call_api(thisShit, command, user_id, media = None, model = model)
@@ -92,9 +100,16 @@ async def do_ask(self, file_meta, event, user_id, command, transcription, task_i
         elif self.to_tts and status not in ["error"]:
             await tts_wrap(thisShit, event, user_id, "/tts", task_id, bot_response = response)
 
-
-        self.conversation = thisShit.conversation
-        await self.update_session_tokens(event, user_id, response, thisShit.used_tokens)
+        if not thisShit.forget or not temporal_conversation:
+            self.conversation = thisShit.conversation
+        if thisShit.download:
+            await send_msg(
+                event,
+                "✍",
+                file = await get_conversation(thisShit, user_id=user_id),
+                disable_delete=True,
+                force_document=True)
+        await self.update_session_tokens(response, thisShit.used_tokens)
 
     except Exception as e:
         raise Exception(f"do_ask: {str(e)}")
@@ -221,9 +236,8 @@ async def process_embeddings_file(self, event, response):
 
 async def update_conversation_history(self, response):
     try:
-        if self.memory:
-            if "1-800" in response and ("HOPE" in response or "TALK" in response):
-                response = "👍💯!"
-            self.conversation.append({"role": "assistant", "content": response})
+        if "1-800" in response and ("HOPE" in response or "TALK" in response):
+            response = "👍💯!"
+        self.conversation.append({"role": "assistant", "content": response})
     except Exception as e:
         raise Exception(f"update_conversation_history: {str(e)}") from e
