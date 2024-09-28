@@ -77,6 +77,7 @@ class UserPrepare():
         self.owners: set = set()
 
         self.sysprompt: str = ""
+        self.allowed_models: set = set()
 
         self.user_id: str  = ''
         self.user_ids_index: dict = dict()
@@ -115,7 +116,7 @@ class UserPrepare():
 
             self.__dict__[key] = value
 
-    def to_string(self):
+    async def to_string(self):
         lines = []
 
         blist = status_blacklist.copy()
@@ -127,18 +128,22 @@ class UserPrepare():
             blist.extend(["tool_model"])
 
         for key, value in vars(self).items():
-            if key in ["groups", "owners"]:
+            if key in ["groups", "owners", "allowed_models"]:
                 value = len(value)
                 if not value:
                     continue
             elif key in blist:
                 continue
+            elif key in ["used_tokens"]:
+                lines.append(f'total_debt: {7.5*(self.used_tokens/1000000):.2f}$')
             lines.append(f'{key}: {value!r}')
         return '\n'.join(lines[:-1]) + '\n'
 
     def get_custom_sysprompt(self) -> list[dict]:
         if self.sysprompt in ["empty", "None"]:
             return list()
+        elif self.sysprompt in ["reset"]:
+            return str()
 
         new_system = f'{self.sysprompt if self.sysprompt else conf.bot_prompts.get("system", "")}'
         if self.tool_call:
@@ -154,17 +159,31 @@ class UserPrepare():
             liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
+    async def check_some_limits(self, user_id, chat_id):
+        if self.max_tokens > conf.max_input_tokens:
+            self.max_tokens = conf.max_input_tokens
+
+        if self.chat_model in conf.exclusive_models:
+            if user_id in conf.all_models_vip_ids or chat_id in conf.all_models_vip_ids:
+                return
+            elif self.chat_model not in self.allowed_models:
+                self.chat_model = co.session_default_chat_model
+
     async def request_wrap(self, event, user_id, command = None) -> None:
-        task_id = await self.random_uuid(str(event.chat_id), user_id)
+        chat_id = str(event.chat_id)
+        await self.check_some_limits(user_id, chat_id)
+        
+
+        task_id = await self.random_uuid(chat_id, user_id)
         transcribed = None
         file_meta: dict = await check_media_type(event)
         if command == conf.command_image:
             return await img_wrap(
-                self, event, user_id, command, task_id
+                self, event, user_id, chat_id, command, task_id
                 )
         elif file_meta["type"] == "audio":
             if command == conf.command_stt or (self.transcribe and command == conf.command_transcribe):
-                transcribed = await stt_wrap(self, event, user_id, task_id)
+                transcribed = await stt_wrap(self, event, user_id, chat_id, task_id)
                 if not transcribed:
                     return
             else:
@@ -174,11 +193,11 @@ class UserPrepare():
             return
         elif command == "/tts":
             return await tts_wrap(
-                self, event, user_id, command, task_id
+                self, event, user_id, chat_id, command, task_id
                 )
 
         return await ask_wrap(
-            self, event, user_id, transcribed,
+            self, event, user_id, chat_id, transcribed,
             command, task_id, file_meta
             )
 
@@ -224,6 +243,7 @@ class UserPrepare():
         try:
             current_token_length = await calculate_token_length(self.conversation)
             conversation_text = None
+            thresh_max = self.max_tokens*0.8
             if current_token_length > int(self.max_tokens):
                 logger.info(f"Detected token limit: {current_token_length}:{self.max_tokens}")
                 if self.summarize and not self.roleplaying:
@@ -234,7 +254,7 @@ class UserPrepare():
                         if msg["role"] in ["user", "assistant"]:
                             del self.conversation[i]
                             current_token_length = await calculate_token_length(self.conversation)
-                            if current_token_length <= self.max_tokens:
+                            if current_token_length <= thresh_max:
                                 break
 
             logger.info(f"Convo token length: {await calculate_token_length(self.conversation)}")
@@ -326,9 +346,9 @@ class UserPrepare():
                 if not prompt:
                     prompt = str(file_meta.get("name", f'.{file_meta["mime"]}'))
                 list_convo[0]["content"] = f'{prompt}\n> .{file_meta["mime"]} context:({vision})'
-            if self.check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in conf.allowed_chat_mimetypes):
+            if await self.check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in conf.allowed_chat_mimetypes):
                 file_meta = await extract_media(event, file_meta)
-                list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"].decode("utf-8")}]'})
+                list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
             logger.debug(f'Returning prompt: {list_convo}')
             return placeholder_msg, list_convo, thisShit
         except Exception as e:
@@ -344,7 +364,7 @@ class UserPrepare():
         return tid
 
     @staticmethod
-    def check_size(size):
+    async def check_size(size):
         return int(size) <= max_kilobytes * 1024
 
     @staticmethod

@@ -4,7 +4,7 @@ from bot.src.tools.tg_tools import select_instance
 
 @rate_limit_handler(5, 60)
 async def roleplay(event, user_id, chat_id, command) -> None:
-    urClass = await select_instance(chat_id, user_id)
+    urClass = await select_instance(chat_id, user_id, event)
     if not urClass.roleplaying:
         urClass.roleplaying = True
         urClass.chat_model = default_roleplay_model

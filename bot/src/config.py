@@ -32,6 +32,10 @@ command_transcribe = f'{command_stt}_auto'
 exclusive_api_name = str(env.get('EXCLUSIVE_API_NAME', [''])[0])
 
 exclusive_api_chat_ids = env.get('EXCLUSIVE_API_WHITELIST', [])
+all_models_vip_ids = env.get('EXCLUSIVE_MODELS_WHITELIST', [])
+exclusive_models = env.get('EXCLUSIVE_MODELS_LIST', ['o1-preview', 'gpt-4o', 'gpt-4'])
+donate_url = env.get('VIP_GET', ['https://ko-fi.com/gpthon'])[0]
+donate_contact = env.get('VIP_CONTACT', ['@kolomviano'])[0]
 
 blacklist_chat_ids = env.get('BLACKLIST_CHAT_ID', [])
 whitelist_chat_ids = env.get('WHITELIST_CHAT_ID', [])

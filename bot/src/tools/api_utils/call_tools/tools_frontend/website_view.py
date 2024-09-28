@@ -3,10 +3,10 @@ from bot.src.tools.api_utils.call_tools.functions_extraction import openaifunc
 from bot.src.tools.api_utils.call_tools.backends.website_view import extract_from_url
 
 @openaifunc
-async def read_a_website(url: str) -> str:
+async def read_a_website(url: str, **kwargs) -> str:
     """
-    Open a website.
-    Reveives an url to open. talk freely about the website content.
+    Open a website provided only by the user.
+    Reveives an url from the user to open. talk freely about the website content.
     Give the relevant data to the user.
 
     Args:

@@ -6,7 +6,7 @@ from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
 from bot.src.tools.params.inference_params import extract_arguments
 from sys import _getframe
 
-async def img_wrap(self, event, user_id, command, task_id):
+async def img_wrap(self, event, user_id, chat_id, command, task_id):
     
     
     prompt = await remove_command(self.conversation, event, command)
@@ -18,7 +18,7 @@ async def img_wrap(self, event, user_id, command, task_id):
     placeholder_msg = await event.reply("🤔🎨, 🖐️⏳...", buttons = await gcb(command, task_id))
 
     task = do_img(thisShit, user_id, event, placeholder_msg, command)
-    msg = await add_task(command, user_id, task, task_id)
+    msg = await add_task(command, user_id, chat_id, task, task_id)
     if msg == "CantAddMore":
         return await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return None

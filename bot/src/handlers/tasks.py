@@ -39,21 +39,32 @@ task_limits = {
     "/tts": 2
 }
 
-user_locks = {}
-async def get_user_lock(user_id):
-    if user_id not in user_locks:
-        user_locks[user_id] = TaskLock()
-    return user_locks[user_id]
+chat_locks = {}
+async def get_chat_lock(user_id, chat_id):
+    if user_id not in chat_locks:
+        chat_locks[user_id] = TaskLock()
+    if chat_id != user_id and chat_id not in chat_locks:
+        chat_locks[chat_id] = TaskLock()
+    return chat_locks.get(user_id, None), chat_locks.get(chat_id, None)
 
 
-async def add_task(task_type, user_id, task, task_id):
-    user_lock = await get_user_lock(user_id)
+async def add_task(task_type, user_id, chat_id, task, task_id):
+    user_lock, chat_lock = await get_chat_lock(user_id, chat_id)
     task_wrapper = None
     async with user_lock:
-        if not index_tasks.get(user_id):
+        if user_id not in index_tasks:
             index_tasks[user_id] = deepcopy(task_types)
+        if chat_lock and chat_id not in index_tasks:
+            async with chat_lock:
+                index_tasks[chat_id] = deepcopy(task_types)
+
         if len(index_tasks[user_id][task_type]) < task_limits[task_type]:
             task_wrapper = c.bot._loop.create_task(task)
+
+            if chat_lock and chat_id in index_tasks:
+                async with chat_lock:
+                    index_tasks[chat_id][task_type][task_id] = task_wrapper
+
             index_tasks[user_id][task_type][task_id] = task_wrapper
             logger.info(f"Task {task_type} - User: {user_id}' - Queued.")
         else:
@@ -69,12 +80,16 @@ async def add_task(task_type, user_id, task, task_id):
         except Exception as e:
             logger.info(f"Error in task: {task_type} - Task ID: {task_id} - User: {user_id}: {e}")
         finally:
-            index_tasks[user_id][task_type].pop(task_id, None)
-        
+            if chat_lock and chat_id in index_tasks:
+                async with chat_lock:
+                    index_tasks[chat_id][task_type].pop(task_id, None)
+            async with user_lock:
+                index_tasks[user_id][task_type].pop(task_id, None)
 
 
-async def cancel_task(task_type, user_id, task_id):
-    user_lock = await get_user_lock(user_id)
+
+async def cancel_task(task_type, user_id, task_id, chat_id):
+    user_lock, chat_lock = await get_chat_lock(user_id, chat_id)
     async with user_lock:
         if not index_tasks.get(user_id, {}).get(task_type):
             return "🤡"
@@ -94,6 +109,8 @@ async def cancel_task(task_type, user_id, task_id):
             logger.error(f"Error cancelling task {task_type} {task_id}: {e}")
             return "❌"
         finally:
+            if chat_lock and chat_id in index_tasks:
+                index_tasks.get(chat_id, {}).get(task_type, {}).pop(task_id, None)
             index_tasks.get(user_id, {}).get(task_type, {}).pop(task_id, None)
 
 async def monitor_tasks(update_each_seconds=5):
@@ -101,21 +118,21 @@ async def monitor_tasks(update_each_seconds=5):
     while True:
         if len(index_tasks):
             users_to_remove = []
-            for user_id, tasks in list(index_tasks.items()):
+            for tg_id, tasks in list(index_tasks.items()):
                 chat_count = len(tasks[c.command_chat])
                 img_count = len(tasks[c.command_image])
                 stt_count = len(tasks[c.command_stt])
                 tts_count = len(tasks["/tts"])
 
                 if chat_count or img_count or stt_count or tts_count:
-                    logger.debug(f"{user_id}: {c.command_chat}: {chat_count}, {c.command_image}: {img_count}, {c.command_stt}: {stt_count}. /tts: {stt_count}.")
+                    logger.debug(f"{tg_id}: {c.command_chat}: {chat_count}, {c.command_image}: {img_count}, {c.command_stt}: {stt_count}. /tts: {stt_count}.")
                 else:
-                    users_to_remove.append(user_id)
+                    users_to_remove.append(tg_id)
 
-            for user_id in users_to_remove:
-                del index_tasks[user_id]
-                del user_locks[user_id]
-                logger.debug(f"Removed user {user_id} from task index due to no active tasks.")
+            for tg_id in users_to_remove:
+                index_tasks.pop(tg_id)
+                chat_locks.pop(tg_id)
+                logger.debug(f"Removed user {tg_id} from task index due to no active tasks.")
 
             total_users = len(index_tasks)
             if total_users != last_total_users:

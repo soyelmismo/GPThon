@@ -56,12 +56,13 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                     thisShit.warning = {"text": "🫡", "file": file, "force_document": True, "disable_delete": True}
                 else:
                     thisShit.download = True
+                    continue
                 break
             case "status":
-                thisShit.warning = {"text": f'%%\n{cls.to_string()}%%', "disable_delete": True}
+                thisShit.warning = {"text": f'%%\n{await cls.to_string()}%%', "disable_delete": True}
                 break
             case "group_mode" | "random_names" | "authorize" | "deauthorize":
-                value = await p_group(cls, arg, value, chat_id, user_id)
+                value = await p_group(cls, event, arg, value, chat_id, user_id)
                 if isinstance(value, dict):
                     thisShit.warning = value
                     break
@@ -71,14 +72,14 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 await roleplay(event, user_id, chat_id, command)
                 value = "🔞🔥"
             case "sysprompt":
-                value = await p_sysprompt(cls, thisShit, value, event, user_id)
+                value = await p_sysprompt(cls, thisShit, value[:1024], event, user_id, command)
                 if thisShit.warning:
                     break
             case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget":
                 await p_auto_bool(thisShit, arg, value)
 
             case "chat_model" | "img_model" | "improve_model" | "vision_model" | "embedding_model" | "tool_model" | "tts_voice":
-                await p_models(thisShit, arg, value)
+                await p_models(thisShit, chat_id, user_id, arg, value)
                 checkIt = getattr(thisShit, arg)
                 if isinstance(checkIt, dict):
                     thisShit.warning = checkIt

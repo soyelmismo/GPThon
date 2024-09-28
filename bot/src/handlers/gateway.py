@@ -41,8 +41,8 @@ async def gateway(event) -> None:
     logger.debug(f"Mentioned by {user_id} using command {command}")
     if not user_id:
         return
-    if command == "/burnme":
-        return await burnme(event, user_id)
+    #if command == "/burnme":
+    #    return await burnme(event, user_id)
     elif command == "/help":
         return await help(event)
     chat_id = str(event.chat_id)
@@ -64,7 +64,7 @@ async def cancel_callback(event):
         user_id = await select_instance(event = event, task_id=c_tik)
         logger.debug(event)
         logger.debug(f'{c_type} {user_id} {c_tik}')
-        message = await cancel_task(c_type, user_id, c_tik)
+        message = await cancel_task(c_type, user_id, c_tik, str(event.chat_id))
         if message:
             await event.answer(message, alert=False)
     except Exception as e:

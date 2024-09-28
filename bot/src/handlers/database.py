@@ -86,9 +86,9 @@ class IndexGroupInstances:
 
         return mng
 
-    async def grab_class(self, chat_id="", user_id="", make_group=None):
+    async def grab_class(self, chat_id="", user_id="", make_group=None, private=True):
         try:
-            if chat_id != user_id:
+            if chat_id != user_id or not private:
                 mng = await self._get_manager(chat_id)
                 if not mng:
                     mng = await self._create_manager(chat_id = chat_id)
@@ -142,17 +142,17 @@ class IndexGroupInstances:
             logger.info(f"Purged {accum} chats from database.")
 
     async def flush_memory(self):
-        if self.redis_enabled and len(self.index):
+        if self.redis_enabled and len(self.index) > 0:
             logger.info("Backup in-memory objects to Redis...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
-                if id not in tasks.index_tasks:
+                if id not in tasks.index_tasks and id not in tasks.chat_locks:
                     await self.save_to_redis(id, await to_dict(user_obj))
                     msg = f"Chat {id} uploaded"
                     time_passed = (exec_date - self.index[id].last_seen).total_seconds()
                     if not conf.save_db_bandwidth and time_passed > 60:
                         async with self.lock:
-                            del self.index[id]
+                            self.index.pop(id)
                             msg += " and deleted locally."
                     logger.info(msg)
         await self.remove_old_db_ids()

@@ -11,7 +11,7 @@ from re import search, sub
 command_list = [c.command_chat,
                 "/rol",
                 "/reset", "/select", "/retry",
-                c.command_stt, "/burnme", "/vision",
+                c.command_stt, "/vision",
                 c.command_image, "/help", "/embed",
                 "/tts"
                 ]
@@ -228,7 +228,7 @@ async def select_instance(chat_id = None, user_id = None, event = None, task_id 
             return str(event.chat_id)
         return await get_id(event)
 
-    return await rdb.db.grab_class(chat_id, user_id)
+    return await rdb.db.grab_class(chat_id, user_id, private=event.is_private)
 
 async def get_id(event) -> str:
     return str(event.sender_id) if event.sender_id else str(event.chat_id)

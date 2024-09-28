@@ -2,7 +2,7 @@ from bot.src.constants import ERRFUNC, FUNCNOARG
 from bot.src.tools.api_utils.call_tools.functions_extraction import openaifunc
 from bot.src.tools.api_utils.call_tools.backends import wttr
 @openaifunc
-async def lookup_weather(location: str, unit: str) -> str:
+async def lookup_weather(location: str, unit: str, **kwargs) -> str:
     """
     Search actual weather info.
     The user ask for weather and you search here for the city he requested.

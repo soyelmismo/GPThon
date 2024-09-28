@@ -6,7 +6,7 @@ from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
 from bot.src.tools.params.inference_params import extract_arguments
 from io import BytesIO
 
-async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):
+async def tts_wrap(self, event, user_id, chat_id, command, task_id, bot_response = None):
 
     if not bot_response:
         prompt = await remove_command(self.conversation, event, command)
@@ -19,7 +19,7 @@ async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):
 
     placeholder_msg = await event.reply("🗣, 🖐️⏳...", buttons = await gcb(command, task_id))
     task = do_tts(thisShit, user_id, event, placeholder_msg, command)
-    msg = await add_task(command, user_id, task, task_id)
+    msg = await add_task(command, user_id, chat_id, task, task_id)
     if msg == "CantAddMore":
         return await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return

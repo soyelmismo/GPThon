@@ -42,7 +42,7 @@ all_args = {
         "streaming", "randomizer",
         "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
         "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout",
-        "memory", "download", "forget"
+        "memory", "download", "forget", "sysprompt"
         ],
 
 

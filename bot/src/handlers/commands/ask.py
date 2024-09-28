@@ -30,16 +30,16 @@ async def ask_gateway(event, user_id, chat_id, command) -> None:
 
     if str(event.message.message).lower().startswith("penis"):
         return await event.reply("🤡")
-    class_to_call = await select_instance(chat_id, user_id)
+    class_to_call = await select_instance(chat_id, user_id, event)
 
     return await class_to_call.request_wrap(event, user_id, command)
 
-async def ask_wrap(self, event, user_id, transcription, command, task_id, file_meta):
+async def ask_wrap(self, event, user_id, chat_id, transcription, command, task_id, file_meta):
     if transcription:
         command = conf.command_chat
     try:
-        task = do_ask(self, file_meta, event, user_id, command, transcription, task_id)
-        msg = await add_task(conf.command_chat, user_id, task, task_id)
+        task = do_ask(self, file_meta, event, user_id, chat_id, command, transcription, task_id)
+        msg = await add_task(conf.command_chat, user_id, chat_id, task, task_id)
         if not msg: return
         elif msg == "CantAddMore":
             await send_msg(event, text = "🫸🫨🫷")
@@ -47,7 +47,7 @@ async def ask_wrap(self, event, user_id, transcription, command, task_id, file_m
     except Exception as e:
         logger.error(f"ask_wrap: {str(e)}")
 
-async def do_ask(self, file_meta, event, user_id, command, transcription, task_id):
+async def do_ask(self, file_meta, event, user_id, chat_id, command, transcription, task_id):
     prompt_list = None
     placeholder_msg = None
     temporal_conversation = False
@@ -98,10 +98,8 @@ async def do_ask(self, file_meta, event, user_id, command, transcription, task_i
         if command == "/embed":
             await placeholder_msg.delete()
         elif self.to_tts and status not in ["error"]:
-            await tts_wrap(thisShit, event, user_id, "/tts", task_id, bot_response = response)
+            await tts_wrap(thisShit, event, user_id, chat_id, "/tts", task_id, bot_response = response)
 
-        if not thisShit.forget or not temporal_conversation:
-            self.conversation = thisShit.conversation
         if thisShit.download:
             await send_msg(
                 event,

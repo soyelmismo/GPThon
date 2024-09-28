@@ -38,7 +38,7 @@ async def manage_non_stream_response(thisShit, res_text, response):
         logger.debug("No streaming...")
         res_text += response.choices[0].message.content
         if not res_text: 
-            raise ValueError(f'"{res_text}" inexistent')
+            raise ValueError(f'"res_text" inexistent')
         try:
             tok = response.usage.total_tokens
         except:
@@ -47,7 +47,7 @@ async def manage_non_stream_response(thisShit, res_text, response):
         thisShit.used_tokens += tok
         yield res_text, "stop"
     except Exception as e:
-        raise f"{_getframe().f_code.co_name}: {str(e)}"
+        raise Exception(f"{_getframe().f_code.co_name}: {str(e)}")
 
 
 async def process_function_data(functions, payload):
@@ -102,7 +102,7 @@ async def manage_stream_response(thisShit, res_text, response):
 
             yield res_text, "continue"
     except Exception as e:
-        raise f"{_getframe().f_code.co_name}: {str(e)}"
+        raise Exception(f"{_getframe().f_code.co_name}: {str(e)}")
 
 
 stream_type = {
@@ -123,6 +123,7 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
             try:
                 logger.debug(f"Joining chat completion with {api}")
                 res_text = ""
+                status = ""
                 client = await select_api_data(api)
                 try:
                     response = await client.chat.completions.create(**payload)

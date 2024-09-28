@@ -5,6 +5,7 @@ import bot.src.config as conf
 from random import shuffle
 import bot.src.constants as c
 from bot.src.logs import logger
+from datetime import datetime, timedelta
 
 total_reqs = {
     conf.command_chat: ["📚", 0],
@@ -23,22 +24,38 @@ async def set_temp_rate(api, duration):
     await sleep(duration)
     rate_limited.discard(api)
 
+async def wait_tomorrow(future_hour):
+    today = datetime.now()
+    planned_date = today.replace(hour=future_hour, minute=0, second=0, microsecond=0)
+    if today.hour >= future_hour:
+        planned_date += timedelta(days=1)
+    wait_time = planned_date - datetime.now()
+    return wait_time.total_seconds()
+
+async def check_api_rate_limit(api, error):
+    future_seconds = None
+    if api == "fresed" and "5 minutes" in error:
+        future_seconds = 300
+    elif api == "electron" and "Insufficient balance" in error:
+        future_seconds = await wait_tomorrow(16)
+    if future_seconds:
+        conf.bot._loop.create_task(set_temp_rate(api, future_seconds))
+
 async def update_total_reqs(type, api, model, user_id, status, response = None, error = None):
-    if not api_reqs.get(api):
+    if api not in api_reqs:
         api_reqs[api] = [0, 0]
+
     if status == 1:
         api_reqs[api][0] += 1
         total_reqs[type][1] += 1
-        logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ✅ {user_id}")
+        icon_emoji = "✅"
     else:
+        icon_emoji = "❌"
         error = str(error)
-        if api == "fresed" and "5 minutes" in error:
-            await set_temp_rate(api, 300)
-
+        await check_api_rate_limit(api, error)
         api_reqs[api][1] += 1
-        logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} ❌ {user_id}")
-        conf.bot._loop.create_task(conf.send_logs_to_channel(f'Error message: {error}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}'))
-
+        conf.bot._loop.create_task(conf.send_logs_to_channel(f'Error message: {error}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}\n\nTriggered by: {user_id}'))
+    logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} {icon_emoji} {user_id}")
 
 async def select_api_data(api):
     client = AsyncOpenAI(

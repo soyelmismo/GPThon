@@ -1,5 +1,5 @@
 from bot.src import constants as c
-from bot.src.config import bot_prompts, max_input_tokens
+from bot.src.config import bot_prompts, max_input_tokens, all_models_vip_ids, exclusive_models, donate_contact, donate_url
 from random import choice
 from bot.src.logs import logger
 from bot.src.tools.api_utils import apis_frontend as oai
@@ -12,7 +12,7 @@ from bot.src.tools.params.longAssDicts import shortened_args, img_ratios, iso_63
 from sys import _getframe
 
 #pattern = compile(r"(\s*\.|\n*\.)([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*)") OK
-pattern = compile(r"(\s+\.[a-zA-Z0-9]+(\s+[^\s.\/]|[\S])*)") #OK OK GOOOOD
+pattern = compile(r"(\s+\.[a-zA-Z0-9]+(\s+[^\s.]|[\S])*)") #OK OK GOOOOD
 
 async def extract_prompt_args(this):
     try:
@@ -161,27 +161,40 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
 model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
 
 forbidden = {"text": "🚫🔞🚫"}
-async def p_models(thisShit, arg, value):
+
+async def get_models_file(type):
+    return (
+            c.img_models if type in ["img_model"]
+            else c.embed_models if type in ["embedding_model"]
+            else c.speech_voices if type in ["tts_voice"]
+            else c.chat_models
+            )
+async def vip_model_user(userdata, model, user_id, chat_id):
+    if (model not in exclusive_models
+        or (model in exclusive_models and model in userdata.allowed_models)
+        or (user_id in all_models_vip_ids or chat_id in all_models_vip_ids)
+        ):
+        return True
+    return False
+
+async def p_models(thisShit, chat_id, user_id, arg, value):
     try:
         if not thisShit.roleplaying:
-            models_dict = (
-                            c.img_models if arg in ["img_model"]
-                            else c.embed_models if arg in ["embedding_model"]
-                            else c.speech_voices if arg in ["tts_voice"]
-                            else c.chat_models
-                            )
+            models_dict = await get_models_file(arg)
             if models_dict:
                 if value in ["r", "random", "a", "any"]:
                     models_list = list(models_dict)
                     while True:
                         selected_model = choice(models_list)
-                        if len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
+                        if not await vip_model_user(thisShit, selected_model, user_id, chat_id):
+                            continue
+                        elif len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
                             logger.warning(f'{selected_model} only supported by fresed, but fresed is rate-limited.')
                             continue
                         else:
                             value = selected_model
                             break
-                        
+
                 elif not value or value not in models_dict:
                     models_file = (
                                    c.img_models_txt if arg in ["img_model"]
@@ -195,6 +208,9 @@ async def p_models(thisShit, arg, value):
                         text = f"⚠️**{value}**⚠️\n\n😒"
 
                     value = {"text": text, "file": models_file, "force_document": True, "disable_delete": True}
+                else:
+                    if not await vip_model_user(thisShit, value, user_id, chat_id):
+                        value = {"text": f"🚫`{value}`🚫\n\n1. 💲👉 {donate_url} 👍💲\n2. 💬 {donate_contact}", "disable_delete": True}
 
         else:
             value = forbidden
@@ -205,22 +221,20 @@ async def p_models(thisShit, arg, value):
         setattr(thisShit, arg, value)
 
 
-async def p_sysprompt(cls, thisShit, value, event, user_id):
+async def p_sysprompt(cls, thisShit, value, event, user_id, command):
     try:
         if thisShit.roleplaying:
             thisShit.warning = "🫵🤡🤣"
             return
         elif value:
-            if value == "reset":
-                value = ""
-                thisShit.sysprompt = str(value)
-            else:
-                thisShit.sysprompt = str(value)
-            cls.sysprompt = thisShit.sysprompt
+            thisShit.sysprompt = str(value)
+            if command == "/select":
+                cls.sysprompt = thisShit.sysprompt
         else:
             value = cls.sysprompt
 
-        await cls.delete_conversation(event, user_id, 0, notify = 1)
+        # await cls.delete_conversation(event, user_id, 0, notify = 1)
+        await thisShit.delete_conversation(event, user_id, 0, notify = 1)
         return value
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
@@ -254,10 +268,10 @@ async def is_integer_string(value):
 
 
 # This is not mini
-async def p_group(thisShit, arg, value, chat_id, user_id):
+async def p_group(thisShit, event, arg, value, chat_id, user_id):
     import bot.src.handlers.database as rdb
     try:
-        if chat_id == user_id:
+        if event.is_private:
             return {"text": "🤡 🫂❓", "delete_user_message":True}
         if not await is_integer_string(value):
             value = await p_auto_bool(thisShit, arg, value, just_return=True)
@@ -289,7 +303,7 @@ async def p_group(thisShit, arg, value, chat_id, user_id):
             else:
                 return {"text": "🫂🔥 🚫", "delete_user_message": True}
         elif arg == "group_mode" and value:
-            grClass = await rdb.db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True)
+            grClass = await rdb.db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True, private=event.is_private)
             if user_id in grClass.owners:
                 async with rdb.db.lock:
                     rdb.db.index[user_id].groups.add(chat_id)

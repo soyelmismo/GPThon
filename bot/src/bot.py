@@ -7,7 +7,7 @@ from bot.src import constants as c
 from bot.src import config as conf
 try:
     from bot.src.tools.api_utils.model_indexer import models_grabber
-    logger.info("Imported custom models.")
+    logger.info("Imported models grabber.")
 except ImportError:
     models_grabber = False
     logger.info("Any model can be set.")
@@ -60,7 +60,7 @@ async def register_events():
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/select(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/retry(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/reset(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
-    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    #conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/help(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '(?s)^(?!/).*$'))
 
@@ -68,7 +68,7 @@ async def register_events():
 
     commands_list.extend([
             BotCommand("select", "🖕"),
-            BotCommand("burnme", "🔥"),
+            #BotCommand("burnme", "🔥"),
             BotCommand("retry", "🔄"),
             BotCommand("reset", "⏮️"),
             BotCommand("help", "☝️🤓"),

@@ -13,7 +13,7 @@ import subprocess
 import os
 
 
-async def stt_wrap(self, event, user_id, task_id, command = command_stt):
+async def stt_wrap(self, event, user_id, chat_id, task_id, command = command_stt):
 
     placeholder_msg = None
     thisShit = None
@@ -28,7 +28,7 @@ async def stt_wrap(self, event, user_id, task_id, command = command_stt):
     if not placeholder_msg:
         return None
     task = do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command, buttons)
-    msg = await add_task(command_stt, user_id, task, task_id)
+    msg = await add_task(command_stt, user_id, chat_id, task, task_id)
     if msg == "CantAddMore":
         await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return msg

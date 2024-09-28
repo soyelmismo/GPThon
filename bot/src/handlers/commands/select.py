@@ -15,7 +15,7 @@ banned_attr = [
 async def select(event, user_id, chat_id, command) -> None:
     
     try:
-        notShit = await select_instance(chat_id, user_id)
+        notShit = await select_instance(chat_id, user_id, event)
         prompt = await remove_command(notShit.conversation, event, command)
         thisShit = await extract_arguments(notShit, event, prompt, command, user_id, chat_id)
         if not thisShit:
