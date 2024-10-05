@@ -6,6 +6,7 @@ from asyncio import Lock as TaskLock, CancelledError, sleep
 from telethon import Button
 
 from copy import deepcopy
+from datetime import datetime
 from random import choice
 from string import ascii_letters, digits
 
@@ -40,32 +41,23 @@ task_limits = {
 }
 
 chat_locks = {}
-async def get_chat_lock(user_id, chat_id):
+async def get_chat_lock(user_id):
     if user_id not in chat_locks:
         chat_locks[user_id] = TaskLock()
-    if chat_id != user_id and chat_id not in chat_locks:
-        chat_locks[chat_id] = TaskLock()
-    return chat_locks.get(user_id, None), chat_locks.get(chat_id, None)
+    return chat_locks.get(user_id, None)
 
 
-async def add_task(task_type, user_id, chat_id, task, task_id):
-    user_lock, chat_lock = await get_chat_lock(user_id, chat_id)
+async def add_task(task_type, user_id, task, task_id):
+    user_lock = await get_chat_lock(user_id)
     task_wrapper = None
     async with user_lock:
         if user_id not in index_tasks:
             index_tasks[user_id] = deepcopy(task_types)
-        if chat_lock and chat_id not in index_tasks:
-            async with chat_lock:
-                index_tasks[chat_id] = deepcopy(task_types)
 
         if len(index_tasks[user_id][task_type]) < task_limits[task_type]:
             task_wrapper = c.bot._loop.create_task(task)
 
-            if chat_lock and chat_id in index_tasks:
-                async with chat_lock:
-                    index_tasks[chat_id][task_type][task_id] = task_wrapper
-
-            index_tasks[user_id][task_type][task_id] = task_wrapper
+            index_tasks[user_id][task_type][task_id] = {"task": task_wrapper, "created_at": datetime.now()}
             logger.info(f"Task {task_type} - User: {user_id}' - Queued.")
         else:
             logger.info(f"Can't add more tasks {task_type}. Please wait.")
@@ -80,16 +72,14 @@ async def add_task(task_type, user_id, chat_id, task, task_id):
         except Exception as e:
             logger.info(f"Error in task: {task_type} - Task ID: {task_id} - User: {user_id}: {e}")
         finally:
-            if chat_lock and chat_id in index_tasks:
-                async with chat_lock:
-                    index_tasks[chat_id][task_type].pop(task_id, None)
+
             async with user_lock:
                 index_tasks[user_id][task_type].pop(task_id, None)
 
 
 
-async def cancel_task(task_type, user_id, task_id, chat_id):
-    user_lock, chat_lock = await get_chat_lock(user_id, chat_id)
+async def cancel_task(task_type, user_id, task_id):
+    user_lock = await get_chat_lock(user_id)
     async with user_lock:
         if not index_tasks.get(user_id, {}).get(task_type):
             return "🤡"
@@ -109,8 +99,6 @@ async def cancel_task(task_type, user_id, task_id, chat_id):
             logger.error(f"Error cancelling task {task_type} {task_id}: {e}")
             return "❌"
         finally:
-            if chat_lock and chat_id in index_tasks:
-                index_tasks.get(chat_id, {}).get(task_type, {}).pop(task_id, None)
             index_tasks.get(user_id, {}).get(task_type, {}).pop(task_id, None)
 
 async def monitor_tasks(update_each_seconds=5):
@@ -125,7 +113,7 @@ async def monitor_tasks(update_each_seconds=5):
                 tts_count = len(tasks["/tts"])
 
                 if chat_count or img_count or stt_count or tts_count:
-                    logger.debug(f"{tg_id}: {c.command_chat}: {chat_count}, {c.command_image}: {img_count}, {c.command_stt}: {stt_count}. /tts: {stt_count}.")
+                    logger.info(f"{tg_id}: {c.command_chat}: {chat_count}, {c.command_image}: {img_count}, {c.command_stt}: {stt_count}. /tts: {stt_count}.")
                 else:
                     users_to_remove.append(tg_id)
 

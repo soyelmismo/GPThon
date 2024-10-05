@@ -24,7 +24,7 @@ LOADING_CHOICES = ["😎", "😱", "😳", "🗿", "🥵",
 
 
 
-@rate_limit_handler(5, 60)
+#@rate_limit_handler(5, 60)
 async def ask_gateway(event, user_id, chat_id, command) -> None:
     logger.debug(event)
 
@@ -39,7 +39,7 @@ async def ask_wrap(self, event, user_id, chat_id, transcription, command, task_i
         command = conf.command_chat
     try:
         task = do_ask(self, file_meta, event, user_id, chat_id, command, transcription, task_id)
-        msg = await add_task(conf.command_chat, user_id, chat_id, task, task_id)
+        msg = await add_task(conf.command_chat, user_id, task, task_id)
         if not msg: return
         elif msg == "CantAddMore":
             await send_msg(event, text = "🫸🫨🫷")

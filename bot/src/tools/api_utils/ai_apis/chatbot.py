@@ -121,6 +121,8 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
         temp_apis = await shuffle_apis(user_id, payload["model"], command)
         for api in temp_apis:
             try:
+                #if model in ["cosmosrp", "cosmosrp-it"]:
+                #    payload["model"] = "gpt-3.5-turbo"
                 logger.debug(f"Joining chat completion with {api}")
                 res_text = ""
                 status = ""
@@ -130,13 +132,11 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                 except CancelledError as e:
                     if "Cancelled by user." not in str(e):
                         continue
-                    else:
-                        raise e
+                    raise e
                 except Exception as e:
-                    if not isinstance(response, str):
-                        pass
-                    else:
+                    if isinstance(response, str):
                         raise e
+
                 logger.debug(f'Response: {response} <---- Response')
 
                 resser = stream_type[payload["stream"]]
@@ -148,7 +148,7 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                         if status in ["stop", "stall"]:
                             await update_total_reqs(command, api, payload["model"], user_id, 1)
                         if status == "stall":
-                            response = "placeholder_empty_second_response"
+                            second_response = "placeholder_empty_second_response"
                             outsider = False
                             logger.debug("Processing function call...")
 
@@ -164,12 +164,13 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                                     s_client = await select_api_data(s_api)
                                     try:
                                         second_response = await s_client.chat.completions.create(**s_payload)
+                                        async for s_res_text, s_status in resser(thisShit, s_res_text, second_response):
+                                            if s_status in ["stop"]:
+                                                await update_total_reqs(command, s_api, s_payload["model"], user_id, 1)
+                                            yield s_res_text, s_status
                                     except APITimeoutError:
                                         continue
-                                    async for s_res_text, s_status in resser(thisShit, s_res_text, second_response):
-                                        if s_status in ["stop"]:
-                                            await update_total_reqs(command, s_api, s_payload["model"], user_id, 1)
-                                        yield s_res_text, s_status
+
                                 except Exception as s_e:
                                     await update_total_reqs(command, s_api, s_payload["model"], user_id, 0, second_response, s_e)
                                     logger.error(f"Error with {s_api}: {str(s_e)}")

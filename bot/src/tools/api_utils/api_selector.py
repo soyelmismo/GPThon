@@ -15,17 +15,25 @@ total_reqs = {
     "/tts": ["🗣", 0],
 }
 
-api_reqs = {}
+api_reqs: dict[dict[dict[int, int]]] = {}
 
 rate_limited = set()
 
-async def set_temp_rate(api, duration):
-    rate_limited.add(api)
-    await sleep(duration)
-    rate_limited.discard(api)
+from datetime import datetime, timedelta
 
-async def wait_tomorrow(future_hour):
-    today = datetime.now()
+rate_limited: dict[str, dict] = {}
+
+async def api_rate_limiter_task(interval: int = 60):  # tiempo en segundos
+    logger.info("Started APIs rate limit check")
+    while True:
+        await sleep(interval)
+        now = datetime.now()
+        for api, data in list(rate_limited.items()):
+            if (now - data['timestamp']).total_seconds() >= data['duration']:
+                rate_limited.pop(api, None)
+                logger.info(f'{api} removed from rate limit list.')
+
+async def wait_tomorrow(today, future_hour):
     planned_date = today.replace(hour=future_hour, minute=0, second=0, microsecond=0)
     if today.hour >= future_hour:
         planned_date += timedelta(days=1)
@@ -34,28 +42,50 @@ async def wait_tomorrow(future_hour):
 
 async def check_api_rate_limit(api, error):
     future_seconds = None
+    today = datetime.now()
     if api == "fresed" and "5 minutes" in error:
         future_seconds = 300
     elif api == "electron" and "Insufficient balance" in error:
-        future_seconds = await wait_tomorrow(16)
+        future_seconds = await wait_tomorrow(today, 16)
+
     if future_seconds:
-        conf.bot._loop.create_task(set_temp_rate(api, future_seconds))
+
+        rate_limited[api] = {
+        'timestamp': today,
+        'duration': future_seconds
+        }
+
+        logger.info(f'{api} rate limited for {future_seconds} seconds.')
 
 async def update_total_reqs(type, api, model, user_id, status, response = None, error = None):
-    if api not in api_reqs:
-        api_reqs[api] = [0, 0]
+    if model not in api_reqs:
+        api_reqs[model] = {}
+    if api not in api_reqs[model]:
+        api_reqs[model][api] = [0, 0] #Success / Failed
 
     if status == 1:
-        api_reqs[api][0] += 1
+        api_reqs[model][api][0] += 1
         total_reqs[type][1] += 1
         icon_emoji = "✅"
     else:
         icon_emoji = "❌"
         error = str(error)
-        await check_api_rate_limit(api, error)
-        api_reqs[api][1] += 1
-        conf.bot._loop.create_task(conf.send_logs_to_channel(f'Error message: {error}:\n\nResponse: {str(response)}\n\nAPI: {api}\nModel: {model}\nSuccess/Failed: {api_reqs[api][0]}/{api_reqs[api][1]}\n\nTriggered by: {user_id}'))
-    logger.info(f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} {icon_emoji} {user_id}")
+        if api not in rate_limited:
+            await check_api_rate_limit(api, error)
+        api_reqs[model][api][1] += 1
+
+        await conf.send_logs_to_channel((
+            f"Error message: {error}\n\n"
+            f"Response: {str(response)}\n\n"
+            f"API: {api}\n"
+            f"Model: {model}\n"
+            f"Success/Failed: {api_reqs[model][api][0]}/{api_reqs[model][api][1]}\n\n"
+            f"Triggered by: {user_id}"
+        ))
+
+    logger.info(
+        f"{total_reqs[type][0]} ({total_reqs[type][1]}) - {api}.{model} {icon_emoji} {user_id}"
+    )
 
 async def select_api_data(api):
     client = AsyncOpenAI(

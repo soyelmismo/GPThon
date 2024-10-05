@@ -1,7 +1,7 @@
 from bot.src.handlers.gateway import gateway, cancel_callback
-from bot.src.handlers.tasks import tasks_identifier
-from bot.src.handlers.tasks import monitor_tasks
+from bot.src.handlers.tasks import tasks_identifier, monitor_tasks
 from bot.src.handlers import database as rdb
+from bot.src.tools.api_utils.api_selector import api_rate_limiter_task
 from bot.src.logs import logger
 from bot.src import constants as c
 from bot.src import config as conf
@@ -87,6 +87,7 @@ async def post_init():
     await rdb.db.initialize_redis()
     conf.bot._loop.create_task(rdb.db.flush_task())
     conf.bot._loop.create_task(monitor_tasks())
+    conf.bot._loop.create_task(api_rate_limiter_task())
     if models_grabber:
         conf.bot._loop.create_task(models_grabber()) # type: ignore
         while c.not_yet_ready:

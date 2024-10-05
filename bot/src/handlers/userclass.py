@@ -143,7 +143,7 @@ class UserPrepare():
         if self.sysprompt in ["empty", "None"]:
             return list()
         elif self.sysprompt in ["reset"]:
-            return str()
+            self.sysprompt = str()
 
         new_system = f'{self.sysprompt if self.sysprompt else conf.bot_prompts.get("system", "")}'
         if self.tool_call:
@@ -162,17 +162,21 @@ class UserPrepare():
     async def check_some_limits(self, user_id, chat_id):
         if self.max_tokens > conf.max_input_tokens:
             self.max_tokens = conf.max_input_tokens
+        if user_id in conf.all_models_vip_ids or chat_id in conf.all_models_vip_ids:
+            return
 
-        if self.chat_model in conf.exclusive_models:
-            if user_id in conf.all_models_vip_ids or chat_id in conf.all_models_vip_ids:
-                return
-            elif self.chat_model not in self.allowed_models:
-                self.chat_model = co.session_default_chat_model
+        if (
+            (self.chat_model in conf.exclusive_models
+             and self.chat_model not in self.allowed_models)
+
+            or self.chat_model not in co.chat_models
+            ):
+            self.chat_model = co.session_default_chat_model
+
 
     async def request_wrap(self, event, user_id, command = None) -> None:
         chat_id = str(event.chat_id)
         await self.check_some_limits(user_id, chat_id)
-        
 
         task_id = await self.random_uuid(chat_id, user_id)
         transcribed = None
@@ -189,8 +193,7 @@ class UserPrepare():
             else:
                 return
         elif command == "/vision" and file_meta["type"] != "image":
-            await event.reply("👁️📷❓")
-            return
+            return await event.reply("👁️📷❓")
         elif command == "/tts":
             return await tts_wrap(
                 self, event, user_id, chat_id, command, task_id
@@ -216,8 +219,8 @@ class UserPrepare():
         self.session_tokens = 0
         if self.random_names and not summarized:
             self.user_ids_index = dict()
-    
-    async def handle_summarize(self, user_id, conversation_text = None):
+
+    async def _handle_summarize(self, user_id, conversation_text = None):
         try:
             logger.info("Trying to summarize the conversation.")
             tempbak = float(self.temperature)
@@ -225,7 +228,7 @@ class UserPrepare():
             if len(self.conversation) > 5:
                 #for msg in self.conversation:
                     #if msg["role"] in ["user"]:
-                        
+
                 latest_msgs = self.conversation[-5:]
             else:
                 latest_msgs = self.conversation[-1:]
@@ -242,25 +245,26 @@ class UserPrepare():
     async def tokens_counter(self, user_id):
         try:
             current_token_length = await calculate_token_length(self.conversation)
-            conversation_text = None
-            thresh_max = self.max_tokens*0.8
-            if current_token_length > int(self.max_tokens):
-                logger.info(f"Detected token limit: {current_token_length}:{self.max_tokens}")
-                if self.summarize and not self.roleplaying:
-                    conversation_text = await self.handle_summarize(user_id)
-                if not conversation_text:
-                    logger.info("Deleting old messages.")
-                    for i, msg in enumerate(self.conversation):
-                        if msg["role"] in ["user", "assistant"]:
-                            del self.conversation[i]
-                            current_token_length = await calculate_token_length(self.conversation)
-                            if current_token_length <= thresh_max:
-                                break
+            if current_token_length < self.max_tokens:
+                return
 
-            logger.info(f"Convo token length: {await calculate_token_length(self.conversation)}")
+            logger.info(f"Detected token limit: {current_token_length}:{self.max_tokens}")
 
+            if self.summarize and not self.roleplaying:
+                return await self._handle_summarize(user_id)
+
+            return await self._delete_old_messages(current_token_length)
         except Exception as e:
             raise Exception(f'tokens_counter: {str(e)}')
+
+    async def _delete_old_messages(self, current_token_length):
+        logger.info("Deleting old messages.")
+        thresh_max = self.max_tokens*0.8
+        while current_token_length > thresh_max:
+            for i, msg in enumerate(self.conversation):
+                if msg["role"] in ["user", "assistant"]:
+                    del self.conversation[i]
+                    current_token_length = await calculate_token_length(self.conversation)
 
     async def update_session_tokens(self, response, tokens_used: int):
         self.used_tokens += tokens_used

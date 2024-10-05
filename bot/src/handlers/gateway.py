@@ -9,7 +9,6 @@ from bot.src.tools.other_tools import *
 from bot.src.handlers.commands.select import select
 from bot.src.handlers.commands.rol import roleplay
 from bot.src.handlers.commands.ask import ask_gateway
-from bot.src.handlers.commands.burnme import burnme
 from bot.src.handlers.commands.reset import reset_conversation
 from bot.src.handlers.commands.retry import retry
 from bot.src.handlers.tasks import cancel_task
@@ -50,7 +49,7 @@ async def gateway(event) -> None:
     callingTo = indexer.get(command)
     if command and callingTo:
         logger.debug(f'calling {command}')
-        c.bot._loop.create_task(callingTo(event, user_id = user_id, chat_id=chat_id, command = command))
+        return await callingTo(event, user_id = user_id, chat_id=chat_id, command = command)
     # raise events.StopPropagation
 
 @rate_limit_handler(3, 60)
@@ -64,7 +63,7 @@ async def cancel_callback(event):
         user_id = await select_instance(event = event, task_id=c_tik)
         logger.debug(event)
         logger.debug(f'{c_type} {user_id} {c_tik}')
-        message = await cancel_task(c_type, user_id, c_tik, str(event.chat_id))
+        message = await cancel_task(c_type, user_id, c_tik)
         if message:
             await event.answer(message, alert=False)
     except Exception as e:

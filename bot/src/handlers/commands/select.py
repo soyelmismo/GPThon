@@ -27,5 +27,6 @@ async def select(event, user_id, chat_id, command) -> None:
 
         if thisShit.notification:
             return await send_msg(event, thisShit.notification)
+        return
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")

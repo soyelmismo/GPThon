@@ -114,13 +114,19 @@ class IndexGroupInstances:
     async def quick_query(self, id, obj):
         id_data = await self.r.hgetall(id)
         if id_data:
-            logger.debug(f"Recovering data from Redis: {id}")
+            logger.info(f"Recovering {id} from Redis")
             await obj.from_dict(id_data)
         return obj
 
-    async def save_to_redis(self, key, data_dict):
+    async def save_to_redis(self, key, data_dict, exec_date):
         await self.r.hset(key, mapping=data_dict)
-        logger.debug(f"Saved {key} to Redis.")
+        msg = f"ID {key} uploaded"
+        time_passed = (exec_date - self.index[key].last_seen).total_seconds()
+        if not conf.save_db_bandwidth and time_passed > 60:
+            async with self.lock:
+                self.index.pop(key)
+                msg += " and deleted locally."
+        logger.info(msg)
 
     async def remove_old_db_ids(self):
         keys = await self.r.keys('*') if self.redis_enabled else [*self.index]
@@ -131,30 +137,25 @@ class IndexGroupInstances:
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
                 last_seen = self.index[key].last_seen if key in self.index else None
-            if await date_calc(last_seen) > self.ttl:
-                async with self.lock:
-                    self.index.pop(key, None)
-                logger.info(f"Deleting ID {key} from database: TTL")
-                accum += 1
-                if self.redis_enabled:
-                    await self.r.delete(key)
+            if last_seen:
+                if await date_calc(last_seen) > self.ttl:
+                    async with self.lock:
+                        self.index.pop(key, None)
+                    logger.info(f"Deleting ID {key} from database: TTL")
+                    accum += 1
+                    if self.redis_enabled:
+                        await self.r.delete(key)
         if accum:
             logger.info(f"Purged {accum} chats from database.")
 
     async def flush_memory(self):
-        if self.redis_enabled and len(self.index) > 0:
-            logger.info("Backup in-memory objects to Redis...")
+        pending = len(self.index)
+        if self.redis_enabled and pending:
+            logger.info(f"Backup {pending} in-memory objects to Redis...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
-                if id not in tasks.index_tasks and id not in tasks.chat_locks:
-                    await self.save_to_redis(id, await to_dict(user_obj))
-                    msg = f"Chat {id} uploaded"
-                    time_passed = (exec_date - self.index[id].last_seen).total_seconds()
-                    if not conf.save_db_bandwidth and time_passed > 60:
-                        async with self.lock:
-                            self.index.pop(id)
-                            msg += " and deleted locally."
-                    logger.info(msg)
+                await self.save_to_redis(id, await to_dict(user_obj), exec_date)
+
         await self.remove_old_db_ids()
 
     async def flush_task(self, force=0):

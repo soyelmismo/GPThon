@@ -14,3 +14,4 @@ async def roleplay(event, user_id, chat_id, command) -> None:
         await urClass.delete_conversation(event, user_id, rol = 1, notify = 1)
     if command == "/rol":
         return await urClass.request_wrap(event, user_id, command = command)
+    return

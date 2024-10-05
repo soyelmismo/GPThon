@@ -1,7 +1,7 @@
 from asyncio import CancelledError
 from bot.src.logs import logger
 
-from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs, api_reqs
+from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 from bot.src.config import default_tts_voice
 from io import BytesIO
 
