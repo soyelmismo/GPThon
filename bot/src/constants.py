@@ -19,6 +19,7 @@ styles_str: str = ""
 
 session_default_chat_model = ""
 session_default_img_model = ""
+session_default_tts_model = ""
 
 
 ERRFUNC = "Error retrieving function."

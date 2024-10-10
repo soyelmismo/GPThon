@@ -1,25 +1,22 @@
 from openai import AsyncOpenAI
 from asyncio import sleep
+from re import search
+from random import shuffle
+from datetime import datetime, timedelta
+from bot.src.logs import logger
 
 import bot.src.config as conf
-from random import shuffle
 import bot.src.constants as c
-from bot.src.logs import logger
-from datetime import datetime, timedelta
 
 total_reqs = {
     conf.command_chat: ["📚", 0],
     conf.command_image: ["🎨", 0],
     conf.command_stt: ["🎤", 0],
     "/embed": ["🃏", 0],
-    "/tts": ["🗣", 0],
+    conf.command_tts: ["🗣", 0],
 }
 
 api_reqs: dict[dict[dict[int, int]]] = {}
-
-rate_limited = set()
-
-from datetime import datetime, timedelta
 
 rate_limited: dict[str, dict] = {}
 
@@ -34,19 +31,19 @@ async def api_rate_limiter_task(interval: int = 60):  # tiempo en segundos
                 logger.info(f'{api} removed from rate limit list.')
 
 async def wait_tomorrow(today, future_hour):
-    planned_date = today.replace(hour=future_hour, minute=0, second=0, microsecond=0)
+    planned_date = today.replace(hour=future_hour, minute=5, second=0, microsecond=0)
     if today.hour >= future_hour:
         planned_date += timedelta(days=1)
     wait_time = planned_date - datetime.now()
     return wait_time.total_seconds()
 
-async def check_api_rate_limit(api, error):
-    future_seconds = None
+async def check_api_rate_limit(api: str, error: str) -> None:
     today = datetime.now()
-    if api == "fresed" and "5 minutes" in error:
-        future_seconds = 300
-    elif api == "electron" and "Insufficient balance" in error:
-        future_seconds = await wait_tomorrow(today, 16)
+    future_seconds = (
+            conf.API_WAIT_CONFIG[api].get("wait_seconds")
+            or await wait_tomorrow(today, conf.API_WAIT_CONFIG[api]["wait_time"])
+        ) if (conf.API_WAIT_CONFIG[api].get("maintenance_condition") in error
+              or conf.API_WAIT_CONFIG[api].get("error_condition") in error) else None
 
     if future_seconds:
 
@@ -70,7 +67,10 @@ async def update_total_reqs(type, api, model, user_id, status, response = None, 
     else:
         icon_emoji = "❌"
         error = str(error)
-        if api not in rate_limited:
+        if "!DOCTYPE html" in error:
+            error = search(r'<title>(.*?)<\/title>', error)
+            error = error.group(1)
+        if api not in rate_limited and api in conf.API_WAIT_CONFIG:
             await check_api_rate_limit(api, error)
         api_reqs[model][api][1] += 1
 
@@ -105,23 +105,20 @@ async def shuffle_apis(user_id, model, type) -> list[str]:
             temp_apis = c.img_models[model].copy()
         elif type == conf.command_stt:
             temp_apis = c.whisper_models[model].copy()
-        elif type == "/tts":
-            voice = model
+        elif type == conf.command_tts:
             apis_with_voice = {}
-            for speech_model, voices in c.speech_models.items():
-                if voice in voices:
+            for speech_model, model_data in c.speech_models.items():
+                if model in model_data["voices"]:
                     if speech_model not in apis_with_voice:
                         apis_with_voice[speech_model] = []
-                    apis_with_voice[speech_model].extend(voices[voice])
-            for _, apis in apis_with_voice:
+                    apis_with_voice[speech_model].extend(model_data["voices"][model])
+            for _, apis in apis_with_voice.items():
                 shuffle(apis)
+                await move_exclusive_api(user_id, apis)
             temp_apis = apis_with_voice
-        if type != "/tts":
+        if type != conf.command_tts:
             shuffle(temp_apis)
-            if conf.exclusive_api_name in temp_apis:
-                temp_apis.remove(conf.exclusive_api_name)
-                if user_id in conf.exclusive_api_chat_ids:
-                    temp_apis.append(conf.exclusive_api_name)
+            await move_exclusive_api(user_id, temp_apis)
     else:
         temp_apis = list(conf.openai_style_apis)
 
@@ -131,3 +128,10 @@ async def shuffle_apis(user_id, model, type) -> list[str]:
             temp_apis.remove(api)
 
     return temp_apis
+
+async def move_exclusive_api(user_id, api_list):
+    if conf.exclusive_api_name in api_list:
+        api_list.remove(conf.exclusive_api_name)
+        if user_id in conf.exclusive_api_chat_ids:
+            api_list.append(conf.exclusive_api_name)
+    return api_list

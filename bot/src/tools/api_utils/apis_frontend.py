@@ -1,4 +1,4 @@
-from bot.src.config import (command_chat, command_image, command_stt)
+from bot.src.config import (command_chat, command_image, command_stt, command_tts)
 from bot.src.logs import logger
 from asyncio import  wait_for, CancelledError, sleep
 
@@ -60,7 +60,7 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                         trying = False
                     yield response, status
 
-            elif command == "/tts":
+            elif command == command_tts:
                 async for response, status in request_text_to_speech(self, user_id, command):
                     if status == "stop":
                         trying = False

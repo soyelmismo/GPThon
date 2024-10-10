@@ -183,3 +183,5 @@ bot.svg
 bot_good.svg
 bot/src/handlers/database.py.old
 bot/src/handlers/commands/ask_ref.py.old
+bot/resources/vip_plans.json
+bot/resources/apis_ratelimits.json

@@ -38,7 +38,7 @@ async def register_events():
     ))
 
     conf.bot.add_event_handler(gateway, NewMessage(
-    pattern = r'(^/tts(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
+    pattern = r'(^' + conf.command_tts + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
 
     if c.whisper_models:

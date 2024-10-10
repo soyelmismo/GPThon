@@ -13,7 +13,7 @@ command_list = [c.command_chat,
                 "/reset", "/select", "/retry",
                 c.command_stt, "/vision",
                 c.command_image, "/help", "/embed",
-                "/tts"
+                c.command_tts
                 ]
 
 async def check_media_type(event) -> dict:
@@ -193,22 +193,35 @@ async def remove_command(conversation, event, bot_command = "") -> str:
 
 
 MAX_DOWNLOAD_MB = 25 * 1024 * 1024
+DOWNLOAD_THRESHOLD = 1 * 1024 * 1024
 
 async def extract_media(event, file_data, placeholder_msg = None, buttons = None) -> dict:
     try:
-        if file_data["size"] < MAX_DOWNLOAD_MB:
-            async def download_progress(current, total):
-                await edit_msg(event = event, placeholder_msg = placeholder_msg, text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: `{'{:.2%}'.format(current / total)}`", buttons=buttons)
+        async def download_progress(current, total):
+            await edit_msg(
+                event = event,
+                placeholder_msg = placeholder_msg,
+                text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: `{'{:.2%}'.format(current / total)}`",
+                buttons=buttons
+            )
 
-            if file_data.get("file"):
-                if placeholder_msg:
-                    file_data["file"] = await event.client.download_media(file_data["file"], file=bytes, progress_callback = download_progress)
-                else:
-                    file_data["file"] = await event.client.download_media(file_data["file"], file=bytes)
-                if file_data["mime"] in c.allowed_chat_mimetypes:
-                    file_data["file"] = file_data["file"].decode("utf-8")
-                    logger.debug(file_data["file"])
-                return file_data
+        if file_data["size"] < MAX_DOWNLOAD_MB and file_data.get("file"):
+            file_data["file"] = await event.client.download_media(
+                file_data["file"],
+                file=bytes,
+                progress_callback = (
+                    download_progress if (
+                        file_data["size"] > DOWNLOAD_THRESHOLD
+                        and placeholder_msg
+                        )
+                                        else None
+                        )
+                )
+
+            if file_data["mime"] in c.allowed_chat_mimetypes:
+                file_data["file"] = file_data["file"].decode("utf-8")
+                logger.debug(file_data["file"])
+            return file_data
         else:
             raise FileNotFoundError("File is too big.")
     except CancelledError as e:

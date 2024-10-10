@@ -16,7 +16,6 @@ from bot.src.handlers.commands.tts import tts_wrap
 from bot.src.tools.tg_tools import send_msg, edit_msg, select_instance
 import bot.src.config as conf
 
-from bot.src.wrappers.rate_limiter import rate_limit_handler
 
 LOADING_CHOICES = ["😎", "😱", "😳", "🗿", "🥵",
                    "🫣", "🤑", "🫨", "🥱", "🙉",
@@ -38,7 +37,7 @@ async def ask_wrap(self, event, user_id, chat_id, transcription, command, task_i
     if transcription:
         command = conf.command_chat
     try:
-        task = do_ask(self, file_meta, event, user_id, chat_id, command, transcription, task_id)
+        task = do_ask(self, file_meta, event, user_id, command, transcription, task_id)
         msg = await add_task(conf.command_chat, user_id, task, task_id)
         if not msg: return
         elif msg == "CantAddMore":
@@ -47,7 +46,7 @@ async def ask_wrap(self, event, user_id, chat_id, transcription, command, task_i
     except Exception as e:
         logger.error(f"ask_wrap: {str(e)}")
 
-async def do_ask(self, file_meta, event, user_id, chat_id, command, transcription, task_id):
+async def do_ask(self, file_meta, event, user_id, command, transcription, task_id):
     prompt_list = None
     placeholder_msg = None
     temporal_conversation = False
@@ -58,6 +57,10 @@ async def do_ask(self, file_meta, event, user_id, chat_id, command, transcriptio
             )
         if not prompt_list or not thisShit:
             return None
+        
+            
+        if self.conversation and (not prompt_list[-1]["content"] or prompt_list[-1]["content"] == self.conversation[-1]["content"]):
+            prompt_list = []
 
         if not placeholder_msg:
             placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}", buttons = c_button)
@@ -98,7 +101,7 @@ async def do_ask(self, file_meta, event, user_id, chat_id, command, transcriptio
         if command == "/embed":
             await placeholder_msg.delete()
         elif self.to_tts and status not in ["error"]:
-            await tts_wrap(thisShit, event, user_id, chat_id, "/tts", task_id, bot_response = response)
+            await tts_wrap(thisShit, event, user_id, conf.command_tts, task_id, bot_response = response)
 
         if thisShit.download:
             await send_msg(
@@ -107,6 +110,8 @@ async def do_ask(self, file_meta, event, user_id, chat_id, command, transcriptio
                 file = await get_conversation(thisShit, user_id=user_id),
                 disable_delete=True,
                 force_document=True)
+        if not temporal_conversation and self.memory:
+            self.conversation = thisShit.conversation
         await self.update_session_tokens(response, thisShit.used_tokens)
 
     except Exception as e:

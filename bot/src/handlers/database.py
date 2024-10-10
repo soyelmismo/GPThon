@@ -131,30 +131,36 @@ class IndexGroupInstances:
     async def remove_old_db_ids(self):
         keys = await self.r.keys('*') if self.redis_enabled else [*self.index]
         accum = 0
-        for key in keys:
+        for tg_id in keys:
             if self.redis_enabled:
-                id_data = await self.r.hgetall(key)
+                id_data = await self.r.hgetall(tg_id)
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
-                last_seen = self.index[key].last_seen if key in self.index else None
+                last_seen = self.index[tg_id].last_seen if tg_id in self.index else None
             if last_seen:
                 if await date_calc(last_seen) > self.ttl:
                     async with self.lock:
-                        self.index.pop(key, None)
-                    logger.info(f"Deleting ID {key} from database: TTL")
+                        self.index.pop(tg_id, None)
+                    logger.info(f"Deleting ID {tg_id} from database: TTL")
                     accum += 1
                     if self.redis_enabled:
-                        await self.r.delete(key)
+                        await self.r.delete(tg_id)
         if accum:
             logger.info(f"Purged {accum} chats from database.")
 
     async def flush_memory(self):
         pending = len(self.index)
+        skipped_ids = 0
         if self.redis_enabled and pending:
-            logger.info(f"Backup {pending} in-memory objects to Redis...")
+            logger.info(f"Trying to backup {pending} in-memory objects to Redis...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
-                await self.save_to_redis(id, await to_dict(user_obj), exec_date)
+                if id in tasks.index_tasks:
+                    skipped_ids += 1
+                else:
+                    await self.save_to_redis(id, await to_dict(user_obj), exec_date)
+        if skipped_ids:
+            logger.info(f"Skipped {skipped_ids} IDs running tasks.")
 
         await self.remove_old_db_ids()
 

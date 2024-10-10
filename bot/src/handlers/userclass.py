@@ -70,7 +70,7 @@ class UserPrepare():
         self.summarize: bool = True
         self.tool_call: bool = False
 
-        self.tts_voice: str = conf.default_tts_voice
+        self.tts_voice: str = co.session_default_tts_model
         self.to_tts: bool = False
 
         self.groups: set = set()
@@ -146,12 +146,12 @@ class UserPrepare():
             self.sysprompt = str()
 
         new_system = f'{self.sysprompt if self.sysprompt else conf.bot_prompts.get("system", "")}'
-        if self.tool_call:
+        # if self.tool_call:
 
-            new_system += "\n\nRemember to use"
-            new_system += f" ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
-            new_system += "tools if user ask something related to its capabilities."
-            new_system += " Answers in the same user language."
+        #     new_system += "\n\nRemember to use"
+        #     new_system += f" ({', '.join(f'{tool}' for tool in co.tools_loaded)}) "
+        #     new_system += "tools if user ask something related to its capabilities."
+        #     new_system += " Answers in the same user language."
 
         liste = [{"role": "system", "content": new_system}]
 
@@ -194,9 +194,9 @@ class UserPrepare():
                 return
         elif command == "/vision" and file_meta["type"] != "image":
             return await event.reply("👁️📷❓")
-        elif command == "/tts":
+        elif command == conf.command_tts:
             return await tts_wrap(
-                self, event, user_id, chat_id, command, task_id
+                self, event, user_id, command, task_id
                 )
 
         return await ask_wrap(
@@ -298,7 +298,7 @@ class UserPrepare():
             return await self.gen_random_name()
 
     async def extract_prompt(self, event, user_id, command, transcription, buttons, file_meta):
-        
+
         placeholder_msg = None
         try:
             if not isinstance(transcription, str):
@@ -334,7 +334,6 @@ class UserPrepare():
                 urls_dicts = await urls_wrapper(prompt)
                 if urls_dicts:
                     list_convo.extend(urls_dicts)
-
             list_convo.append({"role": "user", "content": prompt})
             if file_meta["type"] == "image":
                 logger.debug(f'{str(event.chat_id)}, {user_id}, {command}')

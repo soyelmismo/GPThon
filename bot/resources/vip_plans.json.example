@@ -1,0 +1,9 @@
+{
+    "free": {
+        "price": 0,
+        "expire_days": -1,
+        "daily_token_limit": 50000,
+        "allowed_models": [],
+        "daily_speech_to_text_seconds": 300
+    }
+}

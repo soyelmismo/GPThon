@@ -1,0 +1,6 @@
+{
+    "openai": {
+        "error_condition": "no credits",
+        "wait_seconds": 300
+    }
+}

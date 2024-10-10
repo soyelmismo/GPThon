@@ -5,7 +5,7 @@ from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, 
 from bot.src.config import default_tts_voice
 from io import BytesIO
 
-from random import shuffle
+response_format = "mp3"
 
 async def request_text_to_speech(thisShit, user_id, command):
     response = None
@@ -15,7 +15,6 @@ async def request_text_to_speech(thisShit, user_id, command):
             model_apis = await shuffle_apis(user_id, thisShit.tts_voice, command)
             logger.debug(f"apis for transcription {model_apis}")
             for model, api in model_apis.items():
-                shuffle(api)
                 for api_try in api:
                     try:
                         logger.debug(f"Joining transcription with {api_try}")
@@ -25,7 +24,7 @@ async def request_text_to_speech(thisShit, user_id, command):
                                 input=thisShit.prompt,
                                 model=model,
                                 voice=thisShit.tts_voice or default_tts_voice,
-                                response_format="mp3",
+                                response_format=response_format,
                                 speed=1.1,
                                 timeout=15
                             )             
@@ -40,7 +39,7 @@ async def request_text_to_speech(thisShit, user_id, command):
                         logger.debug("Received, yielding")
                         await update_total_reqs(command, api_try, model, user_id, 1)
                         audio = BytesIO()
-                        audio.name = f'{thisShit.prompt[:10]}...tts.mp3'
+                        audio.name = f'{thisShit.prompt[:10]}...tts.{response_format}'
                         audio.write(response.content)
                         yield audio, "stop"
                     except CancelledError as e:

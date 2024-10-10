@@ -17,7 +17,7 @@ indexer = {
     c.command_chat: ask_gateway,
     c.command_stt: ask_gateway,
     c.command_transcribe: ask_gateway,
-    "/tts": ask_gateway,
+    c.command_tts: ask_gateway,
     "/vision": ask_gateway,
     "/embed": ask_gateway,
     c.command_image: ask_gateway,

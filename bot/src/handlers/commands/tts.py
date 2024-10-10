@@ -4,9 +4,10 @@ from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
 from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
 from bot.src.tools.params.inference_params import extract_arguments
+from bot.src.config import command_tts
 from io import BytesIO
 
-async def tts_wrap(self, event, user_id, chat_id, command, task_id, bot_response = None):
+async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):
 
     if not bot_response:
         prompt = await remove_command(self.conversation, event, command)
@@ -40,7 +41,7 @@ async def do_tts(thisShit, user_id, event, placeholder_msg, command):
 
     if isinstance(audio, BytesIO):
         caption = None
-        async with event.client.action(entity=event.chat_id, action='photo'):
+        async with event.client.action(entity=event.chat_id, action='audio'):
             # if self.to_tts:
             #     caption = text_response
             await send_msg(event, caption,
@@ -48,7 +49,7 @@ async def do_tts(thisShit, user_id, event, placeholder_msg, command):
                             force_document=False,
                             disable_delete=True
                             )
-            if command == "/tts":
+            if command == command_tts:
                 await placeholder_msg.delete()
 
     elif isinstance(audio, str):

@@ -80,7 +80,7 @@ async def process_audio(thisShit, event, user_id, placeholder_msg, file_meta, co
             responseapi = gptools.call_api(thisShit, command = command, user_id=user_id, media = media)
             response, status = await wait_for(responseapi.__anext__(), 60) # type: ignore
             if status == "stop":
-                return response
+                return response.strip()
             elif status == "fail":
                 await edit_msg(event, placeholder_msg, "🎤 😔❌👍")
             elif status == "cancel":

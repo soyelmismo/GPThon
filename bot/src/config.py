@@ -26,6 +26,7 @@ bot_name = str(env.get('BOT_NAME_COMMAND', ['hey'])[0]).lower().strip()
 command_chat = str(env.get('CHAT_COMMAND', ['/ask'])[0]).lower().strip()
 command_image = str(env.get('IMAGE_COMMAND', ['/img'])[0]).lower().strip()
 command_stt = str(env.get('STT_COMMAND', ['/stt'])[0]).lower().strip()
+command_tts = str(env.get('TTS_COMMAND', ['/tts'])[0]).lower().strip()
 command_transcribe = f'{command_stt}_auto'
 
 
@@ -91,6 +92,10 @@ if openai_style_apis.get("apis_roleplay.json"):
 with open(basepath / "resources" / "prompts.json", "r", encoding="utf-8") as infile:
     bot_prompts = load(infile)
 
+API_WAIT_CONFIG = dict()
+
+with open(basepath / "resources" / "apis_ratelimits.json", "r", encoding="utf-8") as infile:
+    API_WAIT_CONFIG = load(infile)
 
 allowed_chat_mimetypes = ["plain", "javascript"]
 allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
