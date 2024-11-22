@@ -1,6 +1,10 @@
-from bot.src.constants import ERRFUNC, FUNCNOARG
+from bot.src.constants import FUNCNOARG
 from bot.src.tools.api_utils.call_tools.functions_extraction import openaifunc
 from bot.src.tools.api_utils.call_tools.backends import wttr
+from bot.src.logs import log_error
+from sys import _getframe
+
+
 @openaifunc
 async def lookup_weather(location: str, unit: str, **kwargs) -> str:
     """
@@ -17,6 +21,7 @@ async def lookup_weather(location: str, unit: str, **kwargs) -> str:
     """
     if location:
         try:
-            return await wttr.getweather(location = location, unit = unit)
-        except Exception: return ERRFUNC
+            return await wttr.getweather(location = str(location), unit = str(unit))
+        except Exception as e:
+            raise Exception(f'{str(e)}: {await log_error(_getframe().f_code.co_name, **locals())}')
     else: return FUNCNOARG

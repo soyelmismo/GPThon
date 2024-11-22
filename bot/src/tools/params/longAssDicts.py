@@ -25,7 +25,8 @@ all_args = {
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
-        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget"
+        "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget",
+        "sudo"
         ],
 
     "/select": [
@@ -34,7 +35,7 @@ all_args = {
         "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
         "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
         "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize",
-        "deauthorize", "timeout"
+        "deauthorize", "timeout", "sudo"
         ],
 
 

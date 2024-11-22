@@ -3,10 +3,10 @@ from asyncio import wait_for
 from bot.src.handlers.tasks import add_task, gen_cancel_button as gcb
 from bot.src.logs import logger
 from bot.src.tools.tg_tools import send_msg, remove_command, edit_msg
-from bot.src.tools.params.inference_params import extract_arguments
+from bot.src.tools.params.inference_params import extract_arguments, command_image
 from sys import _getframe
 
-async def img_wrap(self, event, user_id, chat_id, command, task_id):
+async def img_wrap(self, event, user_id, command, task_id):
     
     
     prompt = await remove_command(self.conversation, event, command)
@@ -17,13 +17,13 @@ async def img_wrap(self, event, user_id, chat_id, command, task_id):
 
     placeholder_msg = await event.reply("🤔🎨, 🖐️⏳...", buttons = await gcb(command, task_id))
 
-    task = do_img(thisShit, user_id, event, placeholder_msg, command)
+    task = do_img(self, thisShit, user_id, event, placeholder_msg, command)
     msg = await add_task(command, user_id, task, task_id)
     if msg == "CantAddMore":
         return await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
     return None
 
-async def do_img(thisShit, user_id, event, placeholder_msg, command):
+async def do_img(self, thisShit, user_id, event, placeholder_msg, command):
     images = None
     responseapi = gptools.call_api(thisShit, command = command, user_id = user_id)
     images, resos, status = await wait_for(responseapi.__anext__(), 60)
@@ -46,6 +46,7 @@ async def do_img(thisShit, user_id, event, placeholder_msg, command):
                             force_document=ForceFile,
                             disable_delete=True
                             )
+            self.daily[command_image]["current"] += len(images)
             await placeholder_msg.delete()
 
     elif isinstance(images, str):

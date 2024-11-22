@@ -6,8 +6,29 @@ from html2text import HTML2Text
 headers = {
     "User-Agent": "Mozilla/5.0 (Android 13; Mobile; rv:109.0) Gecko/113.0 Firefox/113.0"
 }
+from aiohttp import ClientSession
+from readability import Document
+from bs4 import BeautifulSoup
+
 
 async def extract_from_url(url: str) -> str:
+    async with ClientSession() as session:
+        async with session.get(url) as response:
+            response.raise_for_status()
+            html_content = await response.text()
+
+    # Usar Readability para extraer el contenido principal
+    doc = Document(html_content)
+    cleaned_html = doc.summary()  # Contenido principal en HTML
+    title = doc.title()  # Título del artículo
+
+    # Opcional: Limpiar el HTML extraído y convertirlo a texto
+    soup = BeautifulSoup(cleaned_html, 'html.parser')
+    cleaned_text = soup.get_text(separator="\n", strip=True)
+
+    return f"{title}\n\n{cleaned_text}"  # Devolver título y texto limpio
+
+async def old_extract_from_url(url: str) -> str:
     
     async with ClientSession() as session:
         async with session.get(url, headers=headers, allow_redirects=True) as response:
@@ -38,7 +59,7 @@ async def urls_handle(urls):
 
 url_match = compile(r'((http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*))')
 
-async def urls_wrapper(prompt):
+async def urls_wrapper(list_convo, prompt):
     matches = url_match.findall(prompt)
     matched_urls = []
     urls_dicts = []
@@ -46,4 +67,6 @@ async def urls_wrapper(prompt):
         matched_urls.append(match[0])
     if matched_urls:
         urls_dicts = await urls_handle(matched_urls)
-    return urls_dicts
+
+    list_convo.extend(urls_dicts)
+    return list_convo

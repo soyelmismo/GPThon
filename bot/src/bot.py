@@ -37,9 +37,10 @@ async def register_events():
     pattern = r'(^/embed(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
     ))
 
-    conf.bot.add_event_handler(gateway, NewMessage(
-    pattern = r'(^' + conf.command_tts + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
-    ))
+    if c.session_default_tts_model:
+        conf.bot.add_event_handler(gateway, NewMessage(
+        pattern = r'(^' + conf.command_tts + r'(@' + escape(conf.bot_data.username) + r')?(\s|$))' # type: ignore
+        ))
 
     if c.whisper_models:
         commands_list.extend([BotCommand("stt", "🎤")])

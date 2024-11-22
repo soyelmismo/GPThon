@@ -16,7 +16,7 @@ from bot.src.tools.params.longAssDicts import (
 from bot.src.tools.params.mini_tools import (
     p_auto_bool, p_floats, p_group, p_improve, p_language, p_models,
     p_photos, p_ratio, p_seed, p_sysprompt, manage_style, extract_arg_value,
-    extract_prompt_args, final_img_step
+    extract_prompt_args, final_img_step, sudo_manager
 )
 
 async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None, file_meta = None):
@@ -50,6 +50,9 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
             continue
 
         match arg:
+            case "sudo":
+                thisShit.warning = await sudo_manager(chat_id, event, value)
+                break
             case "download":
                 if command == "/select":
                     file = await get_conversation(thisShit, user_id=user_id)
@@ -77,6 +80,8 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                     break
             case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget":
                 await p_auto_bool(thisShit, arg, value)
+                if thisShit.warning:
+                    break
 
             case "chat_model" | "img_model" | "improve_model" | "vision_model" | "embedding_model" | "tool_model" | "tts_voice":
                 await p_models(thisShit, chat_id, user_id, arg, value)

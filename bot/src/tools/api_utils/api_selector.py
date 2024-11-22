@@ -42,8 +42,8 @@ async def check_api_rate_limit(api: str, error: str) -> None:
     future_seconds = (
             conf.API_WAIT_CONFIG[api].get("wait_seconds")
             or await wait_tomorrow(today, conf.API_WAIT_CONFIG[api]["wait_time"])
-        ) if (conf.API_WAIT_CONFIG[api].get("maintenance_condition") in error
-              or conf.API_WAIT_CONFIG[api].get("error_condition") in error) else None
+        ) if (conf.API_WAIT_CONFIG[api].get("maintenance_condition", "") in error
+              or conf.API_WAIT_CONFIG[api].get("error_condition", "") in error) else None
 
     if future_seconds:
 

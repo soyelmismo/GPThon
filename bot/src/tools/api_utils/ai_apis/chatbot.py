@@ -1,19 +1,20 @@
-from asyncio import CancelledError
+from asyncio import CancelledError, sleep
 from random import uniform
 from sys import _getframe
 from json import loads
 from copy import deepcopy
 from openai import APITimeoutError
-from httpx import Timeout
 
 from bot.src.logs import logger
 from bot.src.config import command_chat
+from bot.src.constants import ERRFUNC
 from bot.src.tools.api_utils.ai_apis.shared_vars import total_tokens
 from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
 
 from bot.src.tools.api_utils.call_tools.functions_extraction import get_openai_funcs
+from bot.src.tools.other_tools import calculate_token_length
 
-
+functions_called_stats = {}
 
 imported_functions = get_openai_funcs(return_function_objects = True)
 functions_data = get_openai_funcs()
@@ -39,10 +40,9 @@ async def manage_non_stream_response(thisShit, res_text, response):
         res_text += response.choices[0].message.content
         if not res_text: 
             raise ValueError(f'"res_text" inexistent')
-        try:
-            tok = response.usage.total_tokens
-        except:
-            tok = 1
+
+        tok = await calculate_token_length(res_text)
+
         total_tokens += tok
         thisShit.used_tokens += tok
         yield res_text, "stop"
@@ -52,16 +52,39 @@ async def manage_non_stream_response(thisShit, res_text, response):
 
 async def process_function_data(functions, payload):
     for func in functions:
-        f = func.function
-        response = await imported_functions[f.name](**loads(f.arguments))
+        tries = 0
+        error = 0
+        while True:
+            try:
+                f = func.function
+                response = await imported_functions[f.name](**loads(f.arguments))
+            except Exception as e:
+                logger.error(f'{f}: retrying {tries}: {str(e)}')
+                if tries > 2:
+                    error = 1
+                    response = ERRFUNC
+                else:
+                    tries += 1
+                    await sleep(0.2)
+                    continue
+            payload["messages"].append(
+                {
+                #"tool_call_id": func.id,
+                "role": "user",
+                #"name": f.name,
+                "content": f'resume this for user:\n{response}',
+                })
+            if not error:
+                f = f.name
+                global functions_called_stats
+                if f not in functions_called_stats:
+                    functions_called_stats[f] = 1
+                else:
+                    functions_called_stats[f] += 1
 
-        payload["messages"].append(
-            {
-            #"tool_call_id": func.id,
-            "role": "user",
-            #"name": f.name,
-            "content": f'resume this for user:\n{response}',
-            })
+                logger.info(f'🛠 ({functions_called_stats[f]}) {f} ✅')
+            break
+
 
     payload.pop("tools")
     payload.pop("tool_choice")
@@ -85,13 +108,7 @@ async def manage_stream_response(thisShit, res_text, response):
             if fr in ["stop", "length"]:
                 if not res_text:
                     raise ValueError(f'"{res_text}" inexistent')
-                try:
-                    tok = chunk.x_groq.get('usage', {}).get('total_tokens', 0)
-                except AttributeError:  # noqa: E722
-                    try:
-                        tok = chunk.usage.total_tokens
-                    except:  # noqa: E722
-                        tok = 1
+                tok = await calculate_token_length(res_text)
 
                 total_tokens += tok
                 thisShit.used_tokens += tok
@@ -120,9 +137,10 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
         logger.debug("Generating response...")
         temp_apis = await shuffle_apis(user_id, payload["model"], command)
         for api in temp_apis:
+            if api == "cerebras":
+                payload.pop("frequency_penalty")
+                payload.pop("presence_penalty")
             try:
-                #if model in ["cosmosrp", "cosmosrp-it"]:
-                #    payload["model"] = "gpt-3.5-turbo"
                 logger.debug(f"Joining chat completion with {api}")
                 res_text = ""
                 status = ""
@@ -176,7 +194,8 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                                     logger.error(f"Error with {s_api}: {str(s_e)}")
                                     continue
                             else:
-                                yield err, "error"
+                                raise ConnectionError("None of APIs responded correctly.")
+                                # yield err, "error"
                         elif outsider:
                             yield res_text, status
                 except Exception as e:
@@ -186,11 +205,12 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                 logger.error(f"Error with {api}: {str(e)}")
                 continue
         else:
-            yield err, "error"
-
+            raise ConnectionError("None of APIs responded correctly.")
+            # yield err, "error"
 
     except Exception as e:
-        logger.error(f"{_getframe().f_code.co_name}: {str(e)} {response}")
+        raise e
+        # raise ConnectionError(f"{_getframe().f_code.co_name}: {str(e)} {response}")
 
 
 

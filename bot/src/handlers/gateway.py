@@ -28,6 +28,7 @@ indexer = {
 }
 
 async def gateway(event) -> None:
+    if c.bot_data.id == event.sender_id: return
     mentioned, command = await is_bot_mentioned(event)
     if not mentioned:
         #logger.debug("No fue mencionado")

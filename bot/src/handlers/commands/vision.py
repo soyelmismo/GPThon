@@ -10,13 +10,14 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
     file_meta = await extract_media(event, file_meta)
     mime_type = file_meta["mime"]
     image_bytes = file_meta["file"]
+    prompty = f"Be detailed about what is in the image, situation and / or transcription.\n\n{prompt}"
     if mime_type not in allowed_image_mimetypes:
         mime_type = "jpeg"
     if mime_type == "webm":
         image_bytes = await extract_photos(file_meta["file"], file_meta["mime"])
         mime_type = "jpeg"
-        sequence_prompt = "what happens in this sequence of images?\n\n"
-        prompt = f'{sequence_prompt}{prompt}'
+        sequence_prompt = "- Describe what happens in this sequence of images."
+        prompty = f'{prompty}\n\n{sequence_prompt}'
     image_bytes, file_name, _ = await compress_image(image_bytes, file_name=file_meta["name"], mime_type=mime_type, quality=55)
     file_meta["name"] = file_name
     doc = f"data:image/{mime_type};base64,{b64encode(image_bytes.getvalue()).decode('utf-8')}"
@@ -24,11 +25,10 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
 
     self.conversation = [
         {"role": "user", "content": [
-            {"type": "text", "text": prompt.split("says: >")[1] if "says: >" in prompt else prompt},
-            {"type": "image_url", "image_url": {"url": doc, "detail": "low"}}
+            {"type": "text", "text": f'{prompty.split("says: >")[1] if "says: >" in prompty else prompty}'},
+            {"type": "image_url", "image_url": {"url": doc, "detail": "high"}}
             ]}
         ]
-    self.max_tokens = 4095
     vision_response = await quick_chat_completion(self, user_id, self.vision_model)
     if not vision_response:
         await edit_msg(event, placeholder_msg, "📷😔❌")

@@ -1,5 +1,5 @@
 from bot.src import constants as c
-from bot.src.config import bot_prompts, max_input_tokens, all_models_vip_ids, exclusive_models, donate_contact, donate_url
+from bot.src import config as conf
 from random import choice
 from bot.src.logs import logger
 from bot.src.tools.api_utils import apis_frontend as oai
@@ -100,7 +100,7 @@ async def p_improve(thisShit, user_id, value):
         else:
             promptr = thisShit.prompt
         thisShit.conversation = [
-            {"role": "system", "content": bot_prompts["img_improve"]},
+            {"role": "system", "content": conf.bot_prompts["img_improve"]},
             {"role": "user", "content": promptr}
             ]
         improved_prompt = await oai.quick_chat_completion(thisShit, user_id, thisShit.improve_model)
@@ -117,14 +117,14 @@ async def p_improve(thisShit, user_id, value):
         
 async def p_floats(thisShit, arg, value):
     try:
-        value = await max_value_param(arg, float(value))
+        value = await max_value_param(thisShit, arg, float(value))
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
         value = "🤡"
     finally:
         setattr(thisShit, arg, value)
 
-async def max_value_param(arg, value):
+async def max_value_param(thisShit, arg, value):
     try:
         if arg in ["temperature"]:
             pmin, pmax = 0, 2
@@ -135,13 +135,18 @@ async def max_value_param(arg, value):
         elif arg in ["presence_penalty", "frequency_penalty"]:
             pmin, pmax = -2, 2
         else:
-            pmin, pmax = 1024, max_input_tokens
+            pmin, pmax = 128, conf.PAID_PLANS[thisShit.tier]["context_token_limit"]
         value = min(max(value, pmin), pmax)
-        return abs(int(value)) if arg == "max_tokens" else value
+        if arg == "max_tokens":
+            value = abs(int(value))
+            if value < 1024:
+                thisShit.summarize = False
+
+        return value
     except Exception as e:
         e = f"{_getframe().f_code.co_name}: {str(e)}"
         logger.error(e)
-        raise e
+        raise Exception(e)
 
 async def p_auto_bool(thisShit, arg, value, just_return = None):
     try:
@@ -149,6 +154,10 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
             value = not getattr(thisShit, arg)
         else:
             value = value.lower() == 'true'
+
+        if arg == "tool_call" and not conf.PAID_PLANS[thisShit.tier]["tool_calls"]:
+            thisShit.warning = {"text": f"🚫`{arg}`🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}", "disable_delete": True}
+            return
         if not just_return:
             setattr(thisShit, arg, value)
         else:
@@ -156,7 +165,7 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
     except Exception as e:
         e = f"{_getframe().f_code.co_name}: {str(e)}"
         logger.error(e)
-        raise e
+        raise Exception(e)
 
 model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
 
@@ -170,10 +179,13 @@ async def get_models_file(type):
             else c.chat_models
             )
 async def vip_model_user(userdata, model, user_id, chat_id):
-    if (model not in exclusive_models
-        or (model in exclusive_models and model in userdata.allowed_models)
-        or (user_id in all_models_vip_ids or chat_id in all_models_vip_ids)
-        ):
+    if (
+        "all" in conf.PAID_PLANS[userdata.tier]["allowed_models"]
+        or model not in conf.PAID_PLANS["tier_3"]["allowed_models"]
+        # or model not in conf.PAID_PLANS["tier_3"]["allowed_models"]
+        or model in conf.PAID_PLANS[userdata.tier]["allowed_models"]
+        or model in userdata.allowed_models
+    ):
         return True
     return False
 
@@ -181,36 +193,32 @@ async def p_models(thisShit, chat_id, user_id, arg, value):
     try:
         if not thisShit.roleplaying:
             models_dict = await get_models_file(arg)
-            if models_dict:
-                if value in ["r", "random", "a", "any"]:
-                    models_list = list(models_dict)
-                    while True:
-                        selected_model = choice(models_list)
-                        if not await vip_model_user(thisShit, selected_model, user_id, chat_id):
-                            continue
-                        elif len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
-                            logger.warning(f'{selected_model} only supported by fresed, but fresed is rate-limited.')
-                            continue
-                        else:
-                            value = selected_model
-                            break
-
-                elif not value or value not in models_dict:
-                    models_file = (
-                                   c.img_models_txt if arg in ["img_model"]
-                                   else c.embed_models_txt if arg in ["embedding_model"]
-                                   else c.speech_voices_txt if arg in ["tts_voice"]
-                                   else c.chat_models_txt
-                                   )
-                    if not value:
-                        text = "😒"
+            if value in ["r", "random", "a", "any"]:
+                models_list = list(models_dict)
+                while True:
+                    selected_model = choice(models_list)
+                    if not await vip_model_user(thisShit, selected_model, user_id, chat_id):
+                        continue
+                    elif len(models_dict[selected_model]) == 1 and models_dict[selected_model][0] == "fresed" and "fresed" in api_datas.rate_limited:
+                        logger.warning(f'{selected_model} only supported by fresed, but fresed is rate-limited.')
+                        continue
                     else:
-                        text = f"⚠️**{value}**⚠️\n\n😒"
+                        value = selected_model
+                        break
 
-                    value = {"text": text, "file": models_file, "force_document": True, "disable_delete": True}
-                else:
-                    if not await vip_model_user(thisShit, value, user_id, chat_id):
-                        value = {"text": f"🚫`{value}`🚫\n\n1. 💲👉 {donate_url} 👍💲\n2. 💬 {donate_contact}", "disable_delete": True}
+            elif not value or value not in models_dict:
+                models_file = (
+                                c.img_models_txt if arg in ["img_model"]
+                                else c.embed_models_txt if arg in ["embedding_model"]
+                                else c.speech_voices_txt if arg in ["tts_voice"]
+                                else c.chat_models_txt
+                                )
+                text = f"⚠️**{value}**⚠️\n\n😒" if not value else "😒"
+
+                value = {"text": text, "file": models_file, "force_document": True, "disable_delete": True}
+            else:
+                if not await vip_model_user(thisShit, value, user_id, chat_id):
+                    value = {"text": f"🚫`{value}`🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}", "disable_delete": True}
 
         else:
             value = forbidden
@@ -242,13 +250,10 @@ async def p_sysprompt(cls, thisShit, value, event, user_id, command):
 
 async def p_seed(thisShit, value):
     try:
-        if value == "None":
-            value = None
-        else:
-            try:
-                value = int(value)
-            except:
-                value = await hash_to_8_digits(value)
+        try:
+            value = None if value.lower() in ["none", "empty", "reset"] else int(value)
+        except:
+            value = await hash_to_8_digits(value)
 
         thisShit.seed = value
     except Exception as e:
@@ -289,6 +294,7 @@ async def p_group(thisShit, event, arg, value, chat_id, user_id):
                 elif arg == "random_names":
                     async with rdb.db.lock:
                         rdb.db.index[chat_id].random_names = value
+                    return {"text": f"{arg}: {value}", "delete_user_message": True}
                 elif arg == "authorize":
                     async with rdb.db.lock:
                         rdb.db.index[chat_id].owners.add(value)
@@ -303,6 +309,9 @@ async def p_group(thisShit, event, arg, value, chat_id, user_id):
             else:
                 return {"text": "🫂🔥 🚫", "delete_user_message": True}
         elif arg == "group_mode" and value:
+            max_groups = conf.PAID_PLANS[thisShit.tier]["max_linked_groups"]
+            if len(thisShit.groups) > max_groups:
+                return {"text": f"Max allowed groups reached ({max_groups}) get **VIP** for more!", "delete_user_message": True}
             grClass = await rdb.db.grab_class(chat_id = chat_id, user_id = user_id, make_group = True, private=event.is_private)
             if user_id in grClass.owners:
                 async with rdb.db.lock:
@@ -313,16 +322,69 @@ async def p_group(thisShit, event, arg, value, chat_id, user_id):
 
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+#/select .sudo add_models -tg_id param
+async def sudo_manager(chat_id, event, value):
+    try:
+        if (
+            not event.is_private
+            or (
+                event.is_private and chat_id not in conf.SUDO_LIST
+                )
+        ):
+            return {"text": "🤐", "delete_user_message": True}
+
+        import bot.src.handlers.database as rdb
+        query_data = [vall.strip() for vall in value.split(" ")]
+        if len(query_data) != 3:
+            return {"text": f"`{query_data}`\n\nIt isn't 3 parameters length...", "delete_user_message": False}
+        arg = query_data[0]
+        tg_id = query_data[1]
+        valuables = query_data[2]
+
+        if tg_id not in rdb.db.index:
+            grClass = await rdb.db.grab_class(chat_id = tg_id, user_id = tg_id, make_group = True, private=True)
+        else:
+            grClass = rdb.db.index[tg_id]
+
+        sudo_status = "LIMBO"
+
+        match arg:
+            case "add_models":
+                for model in valuables.split(","):
+                    grClass.allowed_models.add(model.strip())
+                sudo_status = f'%%[{grClass.allowed_models}]%%'
+            case "remove_models":
+                if valuables.strip() in ["all"]:
+                    grClass.allowed_models = set()
+                else:
+                    for model in valuables.split(","):
+                        grClass.allowed_models.discard(model.strip())
+                sudo_status = f'%%[{grClass.allowed_models}]%%'
+            case "tier":
+                old_tier = str(grClass.tier)
+                new_tier = valuables.strip()
+                grClass.tier = new_tier if new_tier in conf.PAID_PLANS else grClass.tier
+                sudo_status = f"{old_tier} > {new_tier} "
+                if grClass.tier == new_tier:
+                    sudo_status += "🆗"
+                else:
+                    sudo_status += f"✖... {conf.PAID_PLANS.keys()}"
+            case _:
+                sudo_status = "❓"
+
+        return {"text": sudo_status, "delete_user_message": False}
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+
 
 async def p_language(thisShit, value):
     try:
-        if value == "None":
+        if value.lower() in ["none", "empty", "reset"]:
             value = None
         else:
             value = str(value).lower()
             if value and value not in iso_639_codes:
                 value = {"text": f"⚠️**{value}**⚠️\n\n🧛", "file": iso_639_codes_txt, "disable_delete": True}
+        thisShit.stt_language = value
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-    finally:
-        thisShit.stt_language = value

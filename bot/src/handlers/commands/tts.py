@@ -23,6 +23,9 @@ async def tts_wrap(self, event, user_id, command, task_id, bot_response = None):
     msg = await add_task(command, user_id, task, task_id)
     if msg == "CantAddMore":
         return await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
+
+    if isinstance(msg, int):
+        self.daily[command_tts]["current"] += msg
     return
 
 async def do_tts(thisShit, user_id, event, placeholder_msg, command):
@@ -44,14 +47,16 @@ async def do_tts(thisShit, user_id, event, placeholder_msg, command):
         async with event.client.action(entity=event.chat_id, action='audio'):
             # if self.to_tts:
             #     caption = text_response
-            await send_msg(event, caption,
+            moss = await send_msg(event, caption,
                             file=audio,
                             force_document=False,
                             disable_delete=True
                             )
             if command == command_tts:
                 await placeholder_msg.delete()
+        
+        return moss.audio.attributes[0].duration or 1
 
     elif isinstance(audio, str):
         await edit_msg(event, placeholder_msg, audio)
-    return
+    return 0

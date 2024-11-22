@@ -1,6 +1,9 @@
-from bot.src.constants import ERRFUNC, FUNCNOARG
+from bot.src.constants import FUNCNOARG
 from bot.src.tools.api_utils.call_tools.functions_extraction import openaifunc
 from bot.src.tools.api_utils.call_tools.backends.website_view import extract_from_url
+from bot.src.logs import log_error
+from sys import _getframe
+
 
 @openaifunc
 async def read_a_website(url: str, **kwargs) -> str:
@@ -18,9 +21,9 @@ async def read_a_website(url: str, **kwargs) -> str:
 
     if url:
         try:
-            return await extract_from_url(url = url)
+            return await extract_from_url(url = str(url))
         except ValueError:
             return "Website is too big to be loaded. Sorry."
-        except Exception:
-            return ERRFUNC
+        except Exception as e:
+            raise Exception(f'{str(e)}: {await log_error(_getframe().f_code.co_name, **locals())}')
     else: return FUNCNOARG

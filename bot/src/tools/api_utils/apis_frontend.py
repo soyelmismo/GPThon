@@ -40,8 +40,10 @@ async def quick_chat_completion(self, user_id, model):
 async def call_api(self, command = None, user_id = None, media=None, model = None, quick = None) :
     response = None
     tries = 0
-    trying = True
-    while trying:
+    # trying = True
+    status = "continue"
+    while status in ["continue", "error", "stall"]:
+    # while trying:
         try:
             if tries == 3:
                 raise Exception("max retries reached in call_api.")
@@ -50,49 +52,51 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
 
             if command == command_chat:
                 async for response, status in request_chat_completion(self, model, user_id, command=command, quick=quick):
-                    if status == "stop":
-                        trying = False
+                    # if status == "stop":
+                    #     trying = False
                     yield response, status
 
             elif command == command_stt:
                 async for response, status in request_transcription(self, media, user_id, command):
-                    if status == "stop":
-                        trying = False
+                    # if status == "stop":
+                    #     trying = False
                     yield response, status
 
             elif command == command_tts:
                 async for response, status in request_text_to_speech(self, user_id, command):
-                    if status == "stop":
-                        trying = False
+                    # if status == "stop":
+                    #     trying = False
                     yield response, status
 
             elif command == command_image:
                 async for response, reso, status in generate_image(self, model, user_id, command):
-                    if status:
-                        trying = False
+                    # if status:
+                    #     trying = False
                     yield response, reso, status
             elif command == "/embed":
                 async for response, status in request_embedding(self, model, user_id, command):
-                    if status == "stop":
-                        trying = False
+                    # if status == "stop":
+                    #     trying = False
                     yield response, status
 
             else:
+                tries = 3
                 raise Exception(f"no command matched {command} from {user_id}")
         except CancelledError as e:
             if "Cancelled by user." not in str(e):
                 continue
             else:
-                trying = False
+                # trying = False
                 if command != command_image:
                     yield "Cancelled", "cancel"
                 else:
                     yield "Cancelled", None, "cancel"
+                break
         except Exception as e:
             if tries == 3:
                 raise ConnectionRefusedError(f'Error in call_api: {str(e)}')
-            continue
-        finally:
+            logger.debug(f"apis_frontend retrying... {user_id}, {command}")
             await sleep(5)
             tries += 1
             continue
+        await sleep(0.1)

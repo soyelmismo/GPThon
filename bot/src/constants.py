@@ -1,25 +1,25 @@
-chat_models: dict[str, list] = {}
-chat_models_txt = ""
-embed_models: dict[str, list] = {}
-embed_models_txt = ""
-img_models: dict[str, list] = {}
-img_models_txt = ""
-whisper_models: dict[str, list] = {}
+chat_models: dict[str, list] = dict()
+chat_models_txt = str()
+embed_models: dict[str, list] = dict()
+embed_models_txt = str()
+img_models: dict[str, list] = dict()
+img_models_txt = str()
+whisper_models: dict[str, list] = dict()
 
 
-speech_models: dict[dict[str, list]] = {}
-speech_voices: dict[str, str] = {}
-speech_voices_txt = ""
+speech_models: dict[dict[str, list]] = dict()
+speech_voices: dict[str, str] = dict()
+speech_voices_txt = str()
 
 not_yet_ready = 1
 
-img_styles: dict[str, str] = {}
-img_styles_txt = ""
-styles_str: str = ""
+img_styles: dict[str, str] = dict()
+img_styles_txt = str()
+styles_str: str = str()
 
-session_default_chat_model = ""
-session_default_img_model = ""
-session_default_tts_model = ""
+session_default_chat_model = str()
+session_default_img_model = str()
+session_default_tts_model = str()
 
 
 ERRFUNC = "Error retrieving function."

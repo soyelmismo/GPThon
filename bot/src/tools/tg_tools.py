@@ -1,5 +1,5 @@
 
-from telethon.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeFilename, DocumentAttributeVideo, DocumentAttributeSticker
+from telethon.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeFilename, DocumentAttributeVideo, DocumentAttributeSticker, DocumentAttributeAudio
 import bot.src.config as c
 from bot.src.logs import logger
 from asyncio import sleep, CancelledError
@@ -47,6 +47,8 @@ async def check_media_type(event) -> dict:
                                 file_data["type"] = "image"
                         if isinstance(instance_type, DocumentAttributeFilename): # type: ignore
                             file_data["name"] = instance_type.file_name # type: ignore
+                        if isinstance(instance_type, DocumentAttributeAudio):
+                            file_data["duration"] = instance_type.duration
             file_data["file"] = media
 
     except Exception as e:
@@ -119,7 +121,7 @@ async def send_msg(event, text, file = None, force_document = None, delete_user_
                 await event.message.delete()
             except MessageDeleteForbiddenError:
                 pass
-    return
+    return msg
 
 
 async def edit_msg(event, placeholder_msg, text, buttons = None):
@@ -186,7 +188,7 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 str(conversation[-1]["content"]).strip() if len(conversation)
                 else "") != replied:
                 message = str(f"\n> {replied}\n\n{message}")
-            
+
     if sticker:
         message = f"{message}{sticker}"
     return message

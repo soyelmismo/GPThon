@@ -12,3 +12,6 @@ duckduckgo_search>=6.2.11
 python_weather>=2.0.3
 html2text>=2024.2.26
 aiohttp>=3.9.5
+readability-lxml>=0.8.1
+beautifulsoup4>=4.12.3
+lxml_html_clean>=0.4.1

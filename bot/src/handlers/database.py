@@ -59,14 +59,13 @@ class IndexGroupInstances:
                 logger.error(f"Failed to connect to Redis: {str(e)}")
 
     async def _get_manager(self, id=None):
-        return self.index.get(id, None)
-
-    async def _create_manager(self, chat_id=None, user_id=None):
+        if id in self.index:
+            return self.index[id]
         mng = UserPrepare()
         if self.redis_enabled:
-            mng = await self.quick_query(chat_id or user_id, mng)
+            mng = await self.quick_query(id, mng)
         async with self.lock:
-            self.index[chat_id or user_id] = mng
+            self.index[id] = mng
         return mng
 
     async def _create_group_chat(self, mng, user_id=None):
@@ -90,21 +89,17 @@ class IndexGroupInstances:
         try:
             if chat_id != user_id or not private:
                 mng = await self._get_manager(chat_id)
-                if not mng:
-                    mng = await self._create_manager(chat_id = chat_id)
                 if make_group:
                     mng = await self._create_group_chat(mng, user_id)
                     if user_id in mng.owners:
                         async with self.lock:
                             self.index[user_id].groups.add(chat_id)
                 if mng.group_mode:
+                    t_mng = await self._get_manager(user_id)
+                    t_mng.last_seen = datetime.now()
                     return mng
 
             mng = await self._get_manager(user_id)
-            if not mng:
-                mng = await self._create_manager(user_id = user_id)
-            async with self.lock:
-                mng.last_seen = datetime.now()
             return mng
 
         except Exception as e:

@@ -1,17 +1,18 @@
 
 from json import loads, JSONDecodeError
 from asyncio import sleep
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 from re import sub
 from random import choice
 from unicodedata import normalize, category
+from math import ceil
 
 from telethon.types import RequestedPeerUser
 
 from bot.src.tools.api_utils.ai_apis import shared_vars as svars
 from bot.src.tools.other_tools import get_conversation, calculate_token_length
-from bot.src.tools.tg_tools import check_media_type, extract_media, remove_command, get_id
+from bot.src.tools.tg_tools import check_media_type, extract_media, remove_command, get_id, edit_msg
 from bot.src.tools.params.inference_params import extract_arguments
 
 import bot.src.config as conf
@@ -26,12 +27,16 @@ from bot.src.handlers.commands.tts import tts_wrap
 from bot.src.handlers.commands.ask import ask_wrap, LOADING_CHOICES
 from bot.src.logs import logger
 
+stt_commands = [conf.command_stt, conf.command_transcribe]
+
 status_blacklist: list = ["conversation",
                         "sysprompt", "user_id",
                         "user_ids_index", "embedding_model",
-                        "last_seen", "debug"
+                        "last_seen", "debug", "daily"
                     ]
 max_kilobytes = 24
+
+DAILY_RECOVERY_RATE = 0.75
 
 class UserPrepare():
     def __init__(self) -> None:        
@@ -45,7 +50,7 @@ class UserPrepare():
         self.embedding_model: str = conf.default_embedding_model
 
         self.memory: bool = True
-
+        self.tier: str = "tier_0"
         self.used_tokens: int = 0
 
         self.transcribe: bool = False
@@ -76,13 +81,14 @@ class UserPrepare():
         self.groups: set = set()
         self.owners: set = set()
 
-        self.sysprompt: str = ""
+        self.sysprompt: str = str()
         self.allowed_models: set = set()
 
-        self.user_id: str  = ''
+        self.user_id: str  = str()
         self.user_ids_index: dict = dict()
         self.last_seen: datetime = datetime.now()
         self.debug: bool = False
+        self.daily: dict = self.manage_daily_quotas()
         self.conversation: list[dict] = self.get_custom_sysprompt()
 
     async def from_dict(self, data):
@@ -134,10 +140,46 @@ class UserPrepare():
                     continue
             elif key in blist:
                 continue
+            elif key in ["tier"]:
+                value = conf.PAID_PLANS[value]["name"]
             elif key in ["used_tokens"]:
                 lines.append(f'total_debt: {7.5*(self.used_tokens/1000000):.2f}$')
             lines.append(f'{key}: {value!r}')
         return '\n'.join(lines[:-1]) + '\n'
+
+    def manage_daily_quotas(self):
+        return {
+            conf.command_chat: {
+                "current": 0,
+                "max": conf.PAID_PLANS[self.tier]["daily_token_limit"],
+                "unit": "tokens",
+                "banned_date": None
+                },
+            conf.command_image: {
+                "current": 0,
+                "max": conf.PAID_PLANS[self.tier]["daily_images_generation_limit"],
+                "unit": "images",
+                "banned_date": None
+                },
+            "/vision": {
+                "current": 0,
+                "max": conf.PAID_PLANS[self.tier]["daily_visions"],
+                "unit": "vision images",
+                "banned_date": None
+            },
+            conf.command_stt: {
+                "current": 0,
+                "max": conf.PAID_PLANS[self.tier]["daily_speech_to_text_seconds"],
+                "unit": "stt seconds",
+                "banned_date": None
+                },
+            conf.command_tts: {
+                "current": 0,
+                "max": conf.PAID_PLANS[self.tier]["daily_text_to_speech_seconds"],
+                "unit": "tts seconds",
+                "banned_date": None
+                }
+            }
 
     def get_custom_sysprompt(self) -> list[dict]:
         if self.sysprompt in ["empty", "None"]:
@@ -159,39 +201,110 @@ class UserPrepare():
             liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
-    async def check_some_limits(self, user_id, chat_id):
-        if self.max_tokens > conf.max_input_tokens:
-            self.max_tokens = conf.max_input_tokens
-        if user_id in conf.all_models_vip_ids or chat_id in conf.all_models_vip_ids:
-            return
+    async def calculate_daily_reset(self, command):
+        now_date = datetime.now()
+        time_inactive = now_date - self.last_seen
 
-        if (
-            (self.chat_model in conf.exclusive_models
-             and self.chat_model not in self.allowed_models)
+        hours_inactive = time_inactive.total_seconds() / 3600
+        current_quota = self.daily[command]["current"]
+        max_quota = self.daily[command]["max"]
 
-            or self.chat_model not in co.chat_models
-            ):
-            self.chat_model = co.session_default_chat_model
+        recovery_per_hour = max_quota / 24
+        recovery_amount = recovery_per_hour * hours_inactive * DAILY_RECOVERY_RATE
 
+        new_daily_current = max(0, ceil(current_quota - recovery_amount))
+        self.daily[command]["current"] = new_daily_current
+
+
+        logger.debug(f'last_seen {type(self.last_seen)} {self.last_seen}')
+        logger.debug(f'time inactive {type(time_inactive)} {time_inactive}')
+        logger.debug(f'Horas inactivas: {hours_inactive}')
+
+        logger.debug(self.user_id)
+
+        logger.debug(f"ANTES {command}, {current_quota}, {max_quota}")
+        logger.debug(f'recovery_per_hour: {recovery_per_hour}')
+        logger.debug(f'recovery_amount: {recovery_amount}')
+        logger.debug(f"DESPUES {command, self.daily[command]["current"], self.daily[command]["max"]}")
+        logger.debug(f'RECUPERADO: {current_quota - self.daily[command]["current"]}')
+
+    async def check_some_limits(self, command, skip = set()):
+        if self.tier == "tier_god":
+            return None
+        if "1" not in skip:
+            self.max_tokens = min(self.max_tokens, conf.PAID_PLANS[self.tier]["context_token_limit"])
+
+            if (
+                self.chat_model not in co.chat_models
+                or (
+                    self.chat_model in conf.PAID_PLANS["tier_3"]["allowed_models"]
+                    and self.chat_model not in set(list(self.allowed_models) + conf.PAID_PLANS[self.tier]["allowed_models"])
+                )
+                ):
+                self.chat_model = co.session_default_chat_model
+
+        if "2" not in skip:
+            daily = self.daily.get(command, False)
+            if self.daily[conf.command_chat]["max"] != conf.PAID_PLANS[self.tier]["daily_token_limit"]:
+                self.daily = self.manage_daily_quotas()
+                return None
+
+            now_Date = datetime.now()
+            iso_banned_date = self.daily[command].get("banned_date")
+            if not iso_banned_date and daily["current"] > daily["max"]:
+                iso_banned_date = now_Date.isoformat()
+                self.daily[command]["banned_date"] = iso_banned_date
+
+            if iso_banned_date:
+                raw_banned_date = datetime.fromisoformat(iso_banned_date)
+                if (now_Date - raw_banned_date).total_seconds() >= 86400:
+                    self.daily[command]["current"] = 0
+                    self.daily[command]["banned_date"] = None
+                    return None
+                else:
+                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{self.daily[command]["max"]} {self.daily[command]["unit"]} reached."
+                    support_message = f"🚫\n`{message}`\n🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}"
+                    future_date = (raw_banned_date + timedelta(days=1) - now_Date).total_seconds()
+                    hours, remainder = divmod(future_date, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    support_message += f'\n\nOr wait `{int(hours):02}h {int(minutes):02}m {int(seconds):02}s`'
+                    return support_message
+
+            if self.daily[command]["current"] > 0:
+                await self.calculate_daily_reset(command)
+            if not daily or daily["current"] < daily["max"]:
+                return None
+
+            if "returnOnlyChatLimit" in skip:
+                return 1
+
+        return None
 
     async def request_wrap(self, event, user_id, command = None) -> None:
         chat_id = str(event.chat_id)
-        await self.check_some_limits(user_id, chat_id)
+        warning = await self.check_some_limits(command)
+        if warning:
+            return await event.reply(warning)
+        self.last_seen = datetime.now()
+        logger.debug(f'GRUPO {self.group_mode}')
 
         task_id = await self.random_uuid(chat_id, user_id)
         transcribed = None
         file_meta: dict = await check_media_type(event)
+        
         if command == conf.command_image:
             return await img_wrap(
-                self, event, user_id, chat_id, command, task_id
+                self, event, user_id, command, task_id
                 )
         elif file_meta["type"] == "audio":
-            if command == conf.command_stt or (self.transcribe and command == conf.command_transcribe):
-                transcribed = await stt_wrap(self, event, user_id, chat_id, task_id)
-                if not transcribed:
-                    return
-            else:
+            
+            if command not in stt_commands or (not self.transcribe and command == conf.command_transcribe):
                 return
+
+            transcribed = await stt_wrap(self, event, user_id, task_id)
+            if not transcribed or await self.check_some_limits(conf.command_chat, skip={"1", "returnOnlyChatLimit"}):
+                return
+
         elif command == "/vision" and file_meta["type"] != "image":
             return await event.reply("👁️📷❓")
         elif command == conf.command_tts:
@@ -200,7 +313,7 @@ class UserPrepare():
                 )
 
         return await ask_wrap(
-            self, event, user_id, chat_id, transcribed,
+            self, event, user_id, transcribed,
             command, task_id, file_meta
             )
 
@@ -217,8 +330,7 @@ class UserPrepare():
             self.top_p = 1.0
         self.conversation = self.get_custom_sysprompt()
         self.session_tokens = 0
-        if self.random_names and not summarized:
-            self.user_ids_index = dict()
+        self.user_ids_index = dict()
 
     async def _handle_summarize(self, user_id, conversation_text = None):
         try:
@@ -251,7 +363,7 @@ class UserPrepare():
             logger.info(f"Detected token limit: {current_token_length}:{self.max_tokens}")
 
             if self.summarize and not self.roleplaying:
-                return await self._handle_summarize(user_id)
+                await self._handle_summarize(user_id)
 
             return await self._delete_old_messages(current_token_length)
         except Exception as e:
@@ -270,6 +382,7 @@ class UserPrepare():
         self.used_tokens += tokens_used
         svars.total_tokens += tokens_used
         self.session_tokens = await calculate_token_length(self.conversation)
+        self.daily[conf.command_chat]["current"] += self.session_tokens
         if response:
             logger.info(f"💰 {svars.total_tokens} 💰")
 
@@ -301,25 +414,16 @@ class UserPrepare():
 
         placeholder_msg = None
         try:
-            if not isinstance(transcription, str):
-                c_back = str(command)
+            if isinstance(transcription, str):
+                prompt = transcription
+                file_meta["type"] = "transcription"
+            else:
                 prompt = await remove_command(self.conversation, event, command)
 
                 if len(prompt) < 2 and not file_meta.get("type") and command not in ["/retry"]:
-                    if self.roleplaying:
-                        await event.reply("🔞❓")
-                    else:
-                        await event.reply("❓")
+                    await event.reply("🔞❓" if self.roleplaying else "❓")
                     return None, None, None
 
-                if file_meta["type"] == "image":
-                    command = "/vision"
-                
-                command = c_back
-
-            else:
-                prompt = transcription
-                file_meta["type"] = "transcription"
             thisShit = await extract_arguments(self, event, prompt, command, user_id, file_meta=file_meta)
 
             if not thisShit:
@@ -329,27 +433,33 @@ class UserPrepare():
             if self.group_mode:
                 prompt = f'{await self.group_mode_data_fetch(event)} says: {prompt}'
             list_convo = []
-            if self.tool_call:
-                
-                urls_dicts = await urls_wrapper(prompt)
-                if urls_dicts:
-                    list_convo.extend(urls_dicts)
+            #if conf.PAID_PLANS[self.tier]["tool_calls"] and self.tool_call:
+            #    list_convo = await urls_wrapper(list_convo, prompt)
+
             list_convo.append({"role": "user", "content": prompt})
             if file_meta["type"] == "image":
+                warning = await self.check_some_limits("/vision")
+                if warning:
+                    await event.reply(warning)
+                    return warning, None, None
                 logger.debug(f'{str(event.chat_id)}, {user_id}, {command}')
-                #if str(event.chat_id) == user_id or command == "/vision":
                 logger.debug("doing vision")
-                tk_bak = int(thisShit.max_tokens)
                 placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}📷", buttons = buttons)
                 vision, file_meta = await do_vision(thisShit, event, user_id, prompt, placeholder_msg, buttons, file_meta)
-                thisShit.max_tokens = tk_bak
                 if not vision:
                     logger.debug(f"No vision detected. Retuning None: {vision}")
                     return None, None, None
                 if not prompt:
                     prompt = str(file_meta.get("name", f'.{file_meta["mime"]}'))
+                self.daily["/vision"]["current"] += 1
                 list_convo[0]["content"] = f'{prompt}\n> .{file_meta["mime"]} context:({vision})'
-            if await self.check_size(file_meta["size"]) and (file_meta["type"] == "text" or file_meta["mime"] in conf.allowed_chat_mimetypes):
+            if (
+                await self.check_size(file_meta["size"])
+                and (
+                    file_meta["type"] == "text"
+                    or file_meta["mime"] in conf.allowed_chat_mimetypes
+                    )
+                ):
                 file_meta = await extract_media(event, file_meta)
                 list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
             logger.debug(f'Returning prompt: {list_convo}')

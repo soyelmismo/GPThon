@@ -31,7 +31,7 @@ async def request_transcription(thisShit, media, user_id, command):
                                 model=model,
                                 file=("voice.ogg", media),
                                 response_format="text",
-                                temperature = thisShit.temperature,
+                                #temperature = thisShit.temperature,
                                 language = thisShit.stt_language,
                                 prompt = thisShit.prompt,
                                 timeout=60

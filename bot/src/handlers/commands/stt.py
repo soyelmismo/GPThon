@@ -1,6 +1,6 @@
 import bot.src.tools.api_utils.apis_frontend as gptools
 from bot.src.tools.tg_tools import check_media_type, extract_media, edit_msg, remove_command
-from bot.src.tools.params.inference_params import extract_arguments
+from bot.src.tools.params.inference_params import extract_arguments, command_stt
 from pathlib import Path
 from asyncio import wait_for
 from bot.src.logs import logger
@@ -13,7 +13,7 @@ import subprocess
 import os
 
 
-async def stt_wrap(self, event, user_id, chat_id, task_id, command = command_stt):
+async def stt_wrap(self, event, user_id, task_id, command = command_stt):
 
     placeholder_msg = None
     thisShit = None
@@ -31,6 +31,8 @@ async def stt_wrap(self, event, user_id, chat_id, task_id, command = command_stt
     msg = await add_task(command_stt, user_id, task, task_id)
     if msg == "CantAddMore":
         await edit_msg(event, placeholder_msg, "🫵🤬, 🖐️⏳... 🖕.")
+    if msg is not None:
+        self.daily[command_stt]["current"] += file_meta.get("duration", 0)
     return msg
 
 
@@ -57,7 +59,7 @@ async def do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command, 
 
             if thisShit.answer_stt:
                 return transcribed
-            return
+            return True
     except Exception as e:
         logger.error(f"Error in do_stt: {str(e)}")
         await edit_msg(event, placeholder_msg, text = "🎤 😔❌👍")
@@ -68,7 +70,7 @@ async def process_audio(thisShit, event, user_id, placeholder_msg, file_meta, co
         logger.debug("Recibido audio!")
         media = None
         triggered = None
-        if file_meta["mime"] not in ["ogg", "mpeg"]:
+        if file_meta["mime"] not in ["ogg", "mpeg", "aac", "m4a", "mp4a", "mp4a-latm"]:
             media = await transcode_audio(file_meta)
             triggered = True
         else:

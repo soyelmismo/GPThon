@@ -33,11 +33,11 @@ command_transcribe = f'{command_stt}_auto'
 exclusive_api_name = str(env.get('EXCLUSIVE_API_NAME', [''])[0])
 
 exclusive_api_chat_ids = env.get('EXCLUSIVE_API_WHITELIST', [])
-all_models_vip_ids = env.get('EXCLUSIVE_MODELS_WHITELIST', [])
-exclusive_models = env.get('EXCLUSIVE_MODELS_LIST', ['o1-preview', 'gpt-4o', 'gpt-4'])
-donate_url = env.get('VIP_GET', ['https://ko-fi.com/gpthon'])[0]
+SUDO_LIST = env.get('SUDO_USER_LIST', [])
+donate_url = env.get('VIP_GET', ['https://ko-fi.com/gpthon/tiers'])[0]
 donate_contact = env.get('VIP_CONTACT', ['@kolomviano'])[0]
 
+BRAVE_SEARCH_APIKEY = env.get('BRAVE_SEARCH_APIKEY', [None])[0]
 blacklist_chat_ids = env.get('BLACKLIST_CHAT_ID', [])
 whitelist_chat_ids = env.get('WHITELIST_CHAT_ID', [])
 
@@ -96,6 +96,11 @@ API_WAIT_CONFIG = dict()
 
 with open(basepath / "resources" / "apis_ratelimits.json", "r", encoding="utf-8") as infile:
     API_WAIT_CONFIG = load(infile)
+
+PAID_PLANS = dict()
+with open(basepath / "resources" / "vip_plans.json", "r", encoding="utf-8") as infile:
+    PAID_PLANS = load(infile)
+
 
 allowed_chat_mimetypes = ["plain", "javascript"]
 allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
