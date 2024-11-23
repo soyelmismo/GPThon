@@ -84,6 +84,7 @@ async def register_events():
 
 async def post_init():
     conf.bot_data = await conf.bot.get_me()
+    conf.bot_mention = f"@{conf.bot_data.username}"
     rdb.start_db()
     await rdb.db.initialize_redis()
     conf.bot._loop.create_task(rdb.db.flush_task())

@@ -109,6 +109,7 @@ allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]
 bot = None
 
 bot_data = None
+bot_mention = None
 
 async def send_logs_to_channel(text, parse_mode='markdown'):
     try:

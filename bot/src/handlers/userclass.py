@@ -244,6 +244,8 @@ class UserPrepare():
                 self.chat_model = co.session_default_chat_model
 
         if "2" not in skip:
+            if "_" in command:
+                command = str(command.split("_")[0]).strip()
             daily = self.daily.get(command, False)
             if self.daily[conf.command_chat]["max"] != conf.PAID_PLANS[self.tier]["daily_token_limit"]:
                 self.daily = self.manage_daily_quotas()

@@ -127,21 +127,23 @@ async def send_msg(event, text, file = None, force_document = None, delete_user_
 async def edit_msg(event, placeholder_msg, text, buttons = None):
     return await event.client.edit_message(entity = event.chat_id, message = placeholder_msg, text = text, buttons = buttons)
 
+sticker_map = {
+    "webm": " animated sticker*",
+    "webp": " sticker*",
+    "mp4": " video*"
+}
 
 async def remove_command(conversation, event, bot_command = "") -> str:
-    
 
-    message = ""
     if not isinstance(bot_command, str):
         bot_command = ""
-    longrep = f"{bot_command}@{c.bot_data.username}"
-    bot_mention = f"@{c.bot_data.username}"
 
-    message = event.message.message
-    msg_Attr = event.message.document.attributes if event.message.document else None
-    msg_Mime = event.message.document.mime_type if event.message.document else None
+    message = event.message.text or ''
     sticker = ''
-    if msg_Attr:
+    if event.message.document:
+        msg_Attr = event.message.document.attributes
+        msg_Mime = event.message.document.mime_type
+
         ok = 0
         for obj in msg_Attr:
             match obj:
@@ -149,39 +151,26 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                     ok = 1
             if ok and msg_Mime:
                 mime = msg_Mime.split("/")[1]
-                sticker = f'\n*sent {mime} '
-                
-                if mime == "webm":
-                    sticker += "animated sticker*"
-                elif mime == "webp":
-                    sticker += "sticker*"
-                elif mime == "mp4":
-                    sticker += "video*"
+                sticker += f'\n*sent {mime}{sticker_map.get(mime, "")}'
+
                 if hasattr(obj, "alt"):
                     sticker += f': {obj.alt}'
                 sticker += "\n"
 
-                
-
     # Elimina bot_command, bot_command@bot_data.username y @bot_data.username
-    if message.startswith(bot_command) or message.startswith(bot_mention):
-        message = message.replace(longrep, "").strip()
-        message = message.replace(bot_command, "").strip()
-        message = message.replace(bot_mention, "").strip()
+    if message.startswith(bot_command) or message.startswith(c.bot_mention):
+        message = await remove_mentions(message, bot_command)
 
     if event.reply_to:
         replied = await event.get_reply_message()
 
-
-        if replied.message:
-            replied = str(replied.message).strip()
-            if "✍️" in replied and "👗" in replied:
+        if replied.text:
+            replied = replied.text
+            if replied.startswith("✍️") and "👗" in replied:
                 replied = search('(?s)(?=[^✍️ ])(.*?)(?=\n👗)', replied)
                 replied = replied.group(1).strip()
-            if replied.startswith(bot_command):
-                replied = str(replied).replace(longrep, "").strip()
-                replied = str(replied).replace(bot_command, "").strip()
-                replied = str(replied).replace(bot_mention, "").strip()
+            if replied.startswith(bot_command) or replied.startswith(c.bot_mention):
+                replied = await remove_mentions(replied, bot_command)
             if bot_command in [c.command_image, "/select", "/embed"]:
                 message = str(f"{replied} {message}").strip()
             elif replied and (
@@ -190,9 +179,14 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 message = str(f"\n> {replied}\n\n{message}")
 
     if sticker:
-        message = f"{message}{sticker}"
+        message = f"{sticker}{message}"
     return message
 
+async def remove_mentions(message, bot_command):
+    message = message.replace(f"{bot_command}{c.bot_mention}", "").strip()
+    message = message.replace(bot_command, "").strip()
+    message = message.replace(c.bot_mention, "").strip()
+    return message
 
 MAX_DOWNLOAD_MB = 25 * 1024 * 1024
 DOWNLOAD_THRESHOLD = 1 * 1024 * 1024
@@ -207,25 +201,25 @@ async def extract_media(event, file_data, placeholder_msg = None, buttons = None
                 buttons=buttons
             )
 
-        if file_data["size"] < MAX_DOWNLOAD_MB and file_data.get("file"):
-            file_data["file"] = await event.client.download_media(
-                file_data["file"],
-                file=bytes,
-                progress_callback = (
-                    download_progress if (
-                        file_data["size"] > DOWNLOAD_THRESHOLD
-                        and placeholder_msg
-                        )
-                                        else None
-                        )
-                )
-
-            if file_data["mime"] in c.allowed_chat_mimetypes:
-                file_data["file"] = file_data["file"].decode("utf-8")
-                logger.debug(file_data["file"])
-            return file_data
-        else:
+        if file_data["size"] > MAX_DOWNLOAD_MB or not file_data.get("file"):
             raise FileNotFoundError("File is too big.")
+        file_data["file"] = await event.client.download_media(
+            file_data["file"],
+            file=bytes,
+            progress_callback = (
+                download_progress if (
+                    file_data["size"] > DOWNLOAD_THRESHOLD
+                    and placeholder_msg
+                    )
+                                    else None
+                    )
+            )
+
+        if file_data["mime"] in c.allowed_chat_mimetypes:
+            file_data["file"] = file_data["file"].decode("utf-8")
+            logger.debug(file_data["file"])
+        return file_data
+
     except CancelledError as e:
         if "Cancelled by user." in str(e):
             return "Task_cancellled"
