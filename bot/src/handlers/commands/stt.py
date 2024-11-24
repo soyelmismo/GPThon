@@ -22,7 +22,7 @@ async def stt_wrap(self, event, user_id, task_id, command = command_stt):
 
     prompt = await remove_command(self.conversation, event, command)
     thisShit = await extract_arguments(self, event, prompt, command, user_id, file_meta = file_meta)
-    if file_meta["type"] == "audio":
+    if file_meta["type"] == "audio" and file_meta["size"]:
         buttons = await gcb(command, task_id)
         placeholder_msg = await event.reply("🤔🎤, 🖐️⏳...", buttons = buttons)
     if not placeholder_msg:

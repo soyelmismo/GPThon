@@ -1,9 +1,16 @@
 {
-    "free": {
+    "tier_0": {
+        "name": "Free Tier",
         "price": 0,
         "expire_days": -1,
-        "daily_token_limit": 50000,
+        "context_token_limit": 2048,
+        "daily_images_generation_limit": 8,
+        "daily_visions": 4,
+        "daily_token_limit": 20000,
+        "max_linked_groups": 1,
+        "tool_calls": false,
         "allowed_models": [],
-        "daily_speech_to_text_seconds": 300
+        "daily_speech_to_text_seconds": 300,
+        "daily_text_to_speech_seconds": 150
     }
 }

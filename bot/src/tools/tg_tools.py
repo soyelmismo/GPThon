@@ -39,7 +39,12 @@ async def check_media_type(event) -> dict:
                     file_data["mime"] = "jpeg"
                 case MessageMediaDocument():
                     media = media.document
-                    file_data["size"] = media.size # type: ignore
+                    
+                    if media.size > MAX_DOWNLOAD_MB:
+                        file_data["size"] = None
+                    else:
+                        file_data["size"] = media.size # type: ignore
+
                     file_data["type"], file_data["mime"] = media.mime_type.split("/") # type: ignore
                     for instance_type in media.attributes:
                         if isinstance(instance_type, DocumentAttributeVideo):
