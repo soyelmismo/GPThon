@@ -43,8 +43,6 @@ whitelist_chat_ids = env.get('WHITELIST_CHAT_ID', [])
 
 default_chat_model = env.get('DEFAULT_CHAT_MODEL', ['chatgpt-4o-latest'])[0]
 default_roleplay_model = env.get('DEFAULT_ROLEPLAY_MODEL', ['gpt-3.5-turbo'])[0]
-max_input_tokens = int(env.get('MAX_INPUT_TOKENS', [4096])[0])
-max_total_tokens = int(env.get('MAX_TOTAL_TOKENS', [8000])[0])
 
 default_stt_model = env.get('DEFAULT_STT_MODEL', ['whisper-large-v3'])[0]
 default_tts_voice = env.get('DEFAULT_TTS_VOICE', ['alloy'])[0]

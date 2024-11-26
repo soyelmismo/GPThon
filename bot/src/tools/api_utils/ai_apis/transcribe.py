@@ -1,4 +1,5 @@
 from asyncio import CancelledError
+from json import loads
 from bot.src.logs import logger
 
 from bot.src.tools.api_utils.api_selector import select_api_data, shuffle_apis, update_total_reqs
@@ -9,6 +10,7 @@ import bot.src.constants as c
 
 async def request_transcription(thisShit, media, user_id, command):
     response = None
+    res_text = None
     try:
         triggered = media[0]
         media = media[1]
@@ -40,16 +42,20 @@ async def request_transcription(thisShit, media, user_id, command):
                             if "Cancelled by user." not in str(e):
                                 continue
                             else:
-                                raise e     
-                        logger.debug(response)
-                        if not isinstance(response, str):
-                            response = response.text
-                            if not response:
-                                yield response, "fail"
+                                raise e    
+                        try:
+                            response = loads(response)
+                            if isinstance(response, dict):
+                                res_text = response["text"]
+                        except:
+                            pass
+                        logger.debug(res_text)
+                        if not res_text:
+                            yield response, "fail"
 
                         logger.debug("Received, yielding")
                         await update_total_reqs(command, api, model, user_id, 1)
-                        yield response, "stop"
+                        yield res_text, "stop"
                         stt_pending = False
 
                     except CancelledError:

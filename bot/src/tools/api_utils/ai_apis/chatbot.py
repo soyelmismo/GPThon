@@ -220,7 +220,6 @@ async def configure_payload(thisShit, model, command, quick):
 
         payload = {
             "messages": thisShit.conversation,
-            #"max_tokens": int(min(int(thisShit.max_tokens) * 0.65, max_total_tokens)),
             "model": model,
             "stream": False if quick else thisShit.streaming,
             "seed": thisShit.seed,

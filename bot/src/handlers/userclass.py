@@ -376,9 +376,10 @@ class UserPrepare():
         thresh_max = self.max_tokens*0.8
         while current_token_length > thresh_max:
             for i, msg in enumerate(self.conversation):
-                if msg["role"] in ["user", "assistant"]:
-                    del self.conversation[i]
+                if msg["role"] not in ["system"]:
+                    del self.conversation[ i ]
                     current_token_length = await calculate_token_length(self.conversation)
+                    break
 
     async def update_session_tokens(self, response, tokens_used: int):
         self.used_tokens += tokens_used
