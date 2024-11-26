@@ -48,7 +48,7 @@ async def request_transcription(thisShit, media, user_id, command):
                             if isinstance(response, dict):
                                 res_text = response["text"]
                         except:
-                            pass
+                            res_text = response
                         logger.debug(res_text)
                         if not res_text:
                             yield response, "fail"

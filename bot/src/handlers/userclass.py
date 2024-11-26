@@ -304,7 +304,7 @@ class UserPrepare():
                 return
 
             transcribed = await stt_wrap(self, event, user_id, task_id)
-            if not transcribed or await self.check_some_limits(conf.command_chat, skip={"1", "returnOnlyChatLimit"}):
+            if not isinstance(transcribed, str) or await self.check_some_limits(conf.command_chat, skip={"1", "returnOnlyChatLimit"}):
                 return
 
         elif command == "/vision" and file_meta["type"] != "image":

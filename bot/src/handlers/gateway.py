@@ -67,5 +67,6 @@ async def cancel_callback(event):
         message = await cancel_task(c_type, user_id, c_tik)
         if message:
             await event.answer(message, alert=False)
+            
     except Exception as e:
         logger.error(str(e))

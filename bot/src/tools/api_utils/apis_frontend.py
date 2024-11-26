@@ -84,7 +84,7 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                 raise Exception(f"no command matched {command} from {user_id}")
         except CancelledError as e:
             if "Cancelled by user." not in str(e):
-                continue
+                raise e
             else:
                 # trying = False
                 if command != command_image:
