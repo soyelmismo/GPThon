@@ -135,12 +135,12 @@ async def max_value_param(thisShit, arg, value):
         elif arg in ["presence_penalty", "frequency_penalty"]:
             pmin, pmax = -2, 2
         else:
-            pmin, pmax = 128, conf.PAID_PLANS[thisShit.tier]["context_token_limit"]
+            pmin, pmax = 32, conf.PAID_PLANS[thisShit.tier]["context_token_limit"]
         value = min(max(value, pmin), pmax)
-        if arg == "max_tokens":
+        if arg in ["max_tokens", "output_tokens"]:
             value = abs(int(value))
-            if value < 1024:
-                thisShit.summarize = False
+            #if value < 1024: # Commented cuz i don't remember why is it here... Maybe this is the beginning of documentation in this project (maybe, idk, probably)
+            #    thisShit.summarize = False
 
         return value
     except Exception as e:

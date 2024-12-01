@@ -26,7 +26,7 @@ all_args = {
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
         "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget",
-        "sudo"
+        "sudo", "output_tokens"
         ],
 
     "/select": [
@@ -35,7 +35,7 @@ all_args = {
         "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
         "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
         "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize",
-        "deauthorize", "timeout", "sudo"
+        "deauthorize", "timeout", "sudo", "output_tokens"
         ],
 
 
@@ -43,7 +43,7 @@ all_args = {
         "streaming", "randomizer",
         "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
         "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout",
-        "memory", "download", "forget", "sysprompt"
+        "memory", "download", "forget", "sysprompt", "output_tokens"
         ],
 
 
@@ -74,6 +74,7 @@ shortened_args = {
     "fp": "frequency_penalty",
     "pp": "presence_penalty",
     "tk": "max_tokens", #tokens
+    "otk": "output_tokens",
     "s": "status",
     "rand": "randomizer",
     "se": "seed",

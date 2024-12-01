@@ -12,13 +12,13 @@ load_dotenv()
 # parse environment variables
 env = {key: str(os.getenv(key)).split(',') if os.getenv(key) else [] for key in os.environ}
 
-redis_enabled = str(env.get('ENABLE_REDIS', ['True'])[0]).lower().strip() == 'true'
+valkey_enabled = str(env.get('ENABLE_VALKEY', ['True'])[0]).lower().strip() == 'true'
 
-redis_uri = str(env.get('REDIS_URI', ['127.0.0.1:6379'])[0]).strip()
-redis_user = str(env.get('REDIS_USER', [''])[0]).strip()
-redis_password = str(env.get('REDIS_PASSWORD', [''])[0]).strip()
+valkey_uri = str(env.get('VALKEY_URI', ['127.0.0.1:6379'])[0]).strip()
+valkey_user = str(env.get('VALKEY_USER', [''])[0]).strip()
+valkey_password = str(env.get('VALKEY_PASSWORD', [''])[0]).strip()
 
-save_db_bandwidth = str(env.get('SAVE_REDIS_BANDWIDTH', ['True'])[0]).lower().strip() == 'true'
+save_db_bandwidth = str(env.get('SAVE_VALKEY_BANDWIDTH', ['True'])[0]).lower().strip() == 'true'
 # Variables
 
 bot_name = str(env.get('BOT_NAME_COMMAND', ['hey'])[0]).lower().strip()

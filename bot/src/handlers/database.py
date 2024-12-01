@@ -1,7 +1,7 @@
 from json import dumps, loads
 from datetime import datetime
 from asyncio import sleep, Lock
-import redis.asyncio as redis
+import redis.asyncio as valkey
 
 import bot.src.config as conf
 from bot.src.logs import logger
@@ -10,9 +10,16 @@ from bot.src.handlers.userclass import UserPrepare
 
 SAVE_MINUTES = 10 if conf.save_db_bandwidth else 1
 
-class RedisClient:
-    def __init__(self, url, encoding="utf-8", decode_responses=True):
-        self.client = redis.from_url(url=url, encoding=encoding, decode_responses=decode_responses)
+class ValkeyClient:
+    def __init__(self, url):
+        self.client = valkey.from_url(
+            url=url, encoding="utf-8",
+            decode_responses=True,
+            health_check_interval=10,
+            socket_connect_timeout=5,
+            retry_on_timeout=True,
+            socket_keepalive=True
+            )
 
     def ping(self):
         return self.client.ping()
@@ -33,36 +40,36 @@ class RedisClient:
 
 
 class IndexGroupInstances:
-    def __init__(self, loop, redis_client=None, ttl=2592000, save_each=SAVE_MINUTES * 60):
-        self.redis_client = redis_client
-        self.r: redis.Redis = None
+    def __init__(self, loop, valkey_client=None, ttl=2592000, save_each=SAVE_MINUTES * 60):
+        self.valkey_client = valkey_client
+        self.r: valkey.Redis = None
         self.lock = Lock()
         self.index = {}
         self.ttl = ttl
         self.save_each = save_each
         self.loop = loop
         
-        if redis_client:
-            self.redis_enabled = True
+        if valkey_client:
+            self.valkey_enabled = True
             
         else:
-            self.redis_enabled = False
+            self.valkey_enabled = False
 
-    async def initialize_redis(self):
-        if self.redis_enabled:
+    async def initialize_valkey(self):
+        if self.valkey_enabled:
             try:
-                self.r = self.redis_client
+                self.r = self.valkey_client
                 response = await self.r.ping()
                 if response:
-                    logger.info("Redis connected.")
+                    logger.info("Valkey connected.")
             except Exception as e:
-                logger.error(f"Failed to connect to Redis: {str(e)}")
+                logger.error(f"Failed to connect to Valkey: {str(e)}")
 
     async def _get_manager(self, id=None):
         if id in self.index:
             return self.index[id]
         mng = UserPrepare()
-        if self.redis_enabled:
+        if self.valkey_enabled:
             mng = await self.quick_query(id, mng)
         async with self.lock:
             self.index[id] = mng
@@ -109,11 +116,11 @@ class IndexGroupInstances:
     async def quick_query(self, id, obj):
         id_data = await self.r.hgetall(id)
         if id_data:
-            logger.info(f"Recovering {id} from Redis")
+            logger.info(f"Recovering {id} from Valkey")
             await obj.from_dict(id_data)
         return obj
 
-    async def save_to_redis(self, key, data_dict, exec_date):
+    async def save_to_valkey(self, key, data_dict, exec_date):
         await self.r.hset(key, mapping=data_dict)
         msg = f"ID {key} uploaded"
         time_passed = (exec_date - self.index[key].last_seen).total_seconds()
@@ -124,10 +131,10 @@ class IndexGroupInstances:
         logger.info(msg)
 
     async def remove_old_db_ids(self):
-        keys = await self.r.keys('*') if self.redis_enabled else [*self.index]
+        keys = await self.r.keys('*') if self.valkey_enabled else [*self.index]
         accum = 0
         for tg_id in keys:
-            if self.redis_enabled:
+            if self.valkey_enabled:
                 id_data = await self.r.hgetall(tg_id)
                 last_seen = loads(id_data["last_seen"])["value"]
             else:
@@ -138,7 +145,7 @@ class IndexGroupInstances:
                         self.index.pop(tg_id, None)
                     logger.info(f"Deleting ID {tg_id} from database: TTL")
                     accum += 1
-                    if self.redis_enabled:
+                    if self.valkey_enabled:
                         await self.r.delete(tg_id)
         if accum:
             logger.info(f"Purged {accum} chats from database.")
@@ -146,24 +153,24 @@ class IndexGroupInstances:
     async def flush_memory(self):
         pending = len(self.index)
         skipped_ids = 0
-        if self.redis_enabled and pending:
-            logger.info(f"Trying to backup {pending} in-memory objects to Redis...")
+        if self.valkey_enabled and pending:
+            logger.info(f"Trying to backup {pending} in-memory objects to Valkey...")
             exec_date = datetime.now()
             for id, user_obj in list(self.index.items()):
                 if id in tasks.index_tasks:
                     skipped_ids += 1
                 else:
-                    await self.save_to_redis(id, await to_dict(user_obj), exec_date)
+                    await self.save_to_valkey(id, await to_dict(user_obj), exec_date)
         if skipped_ids:
             logger.info(f"Skipped {skipped_ids} IDs running tasks.")
 
         await self.remove_old_db_ids()
 
     async def flush_task(self, force=0):
-        if not force and self.redis_enabled:
+        if not force and self.valkey_enabled:
             logger.info(f"Scheduled to flush memory every {self.save_each} seconds.")
         try:
-            if self.redis_enabled:
+            if self.valkey_enabled:
                 while True:
                     if not force:
                         await sleep(self.save_each)
@@ -173,9 +180,9 @@ class IndexGroupInstances:
                         break
             else:
                 if force:
-                    logger.warning("Tried to flush database forcibly, but Redis not detected.")
+                    logger.warning("Tried to flush database forcibly, but Valkey not detected.")
                 else:
-                    logger.warning("Redis not detected. Flush scheduling disabled.")
+                    logger.warning("Valkey not detected. Flush scheduling disabled.")
         except Exception as e:
             logger.error(f"Error in schedule_flush: {str(e)}")
             raise e
@@ -188,7 +195,7 @@ class IndexGroupInstances:
             if group in self.index:
                 group_data = self.index[group]
                 owners = group_data.owners
-            elif self.redis_enabled:
+            elif self.valkey_enabled:
                 group_data = await self.r.hgetall(group)
                 if group_data:
                     owners = set(loads(group_data["owners"])["value"])
@@ -210,7 +217,7 @@ class IndexGroupInstances:
                 for del_id in indexed_deletions:
                     self.index.pop(del_id, None)
             
-            if self.redis_enabled:
+            if self.valkey_enabled:
                 await self.r.delete(*indexed_deletions)
             
             return 1
@@ -224,7 +231,7 @@ class IndexGroupInstances:
             logger.debug(f'Deleting group data: {id}')
             async with self.lock:
                 deleted = self.index.pop(id, False)
-            if self.redis_enabled:
+            if self.valkey_enabled:
                 deleted = await self.r.delete(id)
             return bool(deleted)
         except Exception as e:
@@ -269,8 +276,8 @@ async def date_calc(old_date, return_str=False):
 db = None
 def start_db():
     global db
-    redis_client = None
-    if conf.redis_enabled:
-        redis_url = f"redis://{conf.redis_user}:{conf.redis_password}@{conf.redis_uri}" if conf.redis_user and conf.redis_password else f"redis://{conf.redis_uri}"
-        redis_client = RedisClient(redis_url)
-    db = IndexGroupInstances(conf.bot._loop, redis_client)
+    valkey_client = None
+    if conf.valkey_enabled:
+        valkey_url = f"redis://{conf.valkey_user}:{conf.valkey_password}@{conf.valkey_uri}" if conf.valkey_user and conf.valkey_password else f"redis://{conf.valkey_uri}"
+        valkey_client = ValkeyClient(valkey_url)
+    db = IndexGroupInstances(conf.bot._loop, valkey_client)

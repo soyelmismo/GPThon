@@ -86,7 +86,7 @@ async def post_init():
     conf.bot_data = await conf.bot.get_me()
     conf.bot_mention = f"@{conf.bot_data.username}"
     rdb.start_db()
-    await rdb.db.initialize_redis()
+    await rdb.db.initialize_valkey()
     conf.bot._loop.create_task(rdb.db.flush_task())
     conf.bot._loop.create_task(monitor_tasks())
     conf.bot._loop.create_task(api_rate_limiter_task())

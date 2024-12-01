@@ -58,6 +58,7 @@ class UserPrepare():
         self.stt_language = None
 
         self.max_tokens: int = 1024
+        self.output_tokens: int = None
 
         self.temperature: float = 1.0
         self.top_p: float = 1.0

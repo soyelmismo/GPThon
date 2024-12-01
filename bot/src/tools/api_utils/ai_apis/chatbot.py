@@ -223,6 +223,7 @@ async def configure_payload(thisShit, model, command, quick):
             "model": model,
             "stream": False if quick else thisShit.streaming,
             "seed": thisShit.seed,
+            "max_tokens": thisShit.max_tokens + int(thisShit.output_tokens if isinstance(thisShit.output_tokens, int) else 0),
             "timeout": thisShit.timeout if thisShit.timeout > 60 else 6 if thisShit.streaming else 15
         }
         if not quick and thisShit.tool_call and command == command_chat:
