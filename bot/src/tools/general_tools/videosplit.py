@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import tempfile
-from PIL import Image
 from bot.src.logs import logger
 from bot.src.config import vision_max_images_seq
 
@@ -52,7 +51,7 @@ async def extract_photos(bytes, mime):
         # Combinar las filas para obtener la imagen final
         grid_image = np.vstack(rows)
 
-        return Image.fromarray(cv2.cvtColor(grid_image, cv2.COLOR_BGR2RGB))
+        return grid_image
 
     except Exception as e:
         logger.error(f"couldn't extract images correctly from video: {str(e)}")

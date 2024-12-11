@@ -94,7 +94,9 @@ async def p_ratio(thisShit, value):
 improve_err = ["❌😔"]
 async def p_improve(thisShit, user_id, value):
     try:
-
+        if await thisShit.check_some_limits(conf.command_chat, skip={"1", "returnOnlyChatLimit"}):
+            thisShit.prompt = [f"{improve_err}... You can't use .improve when you run out of tokens."]
+            return
         if value:
             promptr = f'"{thisShit.prompt}"\n\nimportant feedback to implement: {value}'
         else:

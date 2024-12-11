@@ -5,6 +5,7 @@ from bot.src.tools.general_tools.videosplit import extract_photos
 from bot.src.tools.general_tools.image_tools import compress_image
 from bot.src.tools.tg_tools import extract_media, edit_msg
 from bot.src.config import allowed_image_mimetypes
+from re import sub, DOTALL
 
 async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file_meta: dict):
     file_meta = await extract_media(event, file_meta)
@@ -13,7 +14,7 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
     prompty = f"Be detailed about what is in the image, situation and / or transcription.\n\n{prompt}"
     if mime_type not in allowed_image_mimetypes:
         mime_type = "jpeg"
-    if mime_type == "webm":
+    if mime_type in ["webm", "mp4"]:
         image_bytes = await extract_photos(file_meta["file"], file_meta["mime"])
         mime_type = "jpeg"
         sequence_prompt = "- Describe what happens in this sequence of images."
@@ -22,6 +23,8 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
     file_meta["name"] = file_name
     doc = f"data:image/{mime_type};base64,{b64encode(image_bytes.getvalue()).decode('utf-8')}"
     await edit_msg(event, placeholder_msg, "👁️⏳...", buttons)
+
+    prompty = sub(r'\*sent.*?\*', '', prompty, flags=DOTALL)
 
     self.conversation = [
         {"role": "user", "content": [

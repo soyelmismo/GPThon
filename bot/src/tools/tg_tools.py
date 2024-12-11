@@ -149,11 +149,12 @@ async def remove_command(conversation, event, bot_command = "") -> str:
         msg_Attr = event.message.document.attributes
         msg_Mime = event.message.document.mime_type
 
-        ok = 0
         for obj in msg_Attr:
             match obj:
                 case DocumentAttributeSticker() | DocumentAttributeVideo():
                     ok = 1
+                case _:
+                    ok = 0
             if ok and msg_Mime:
                 mime = msg_Mime.split("/")[1]
                 sticker += f'\n*sent {mime}{sticker_map.get(mime, "")}'
@@ -161,6 +162,7 @@ async def remove_command(conversation, event, bot_command = "") -> str:
                 if hasattr(obj, "alt"):
                     sticker += f': {obj.alt}'
                 sticker += "\n"
+                break
 
     # Elimina bot_command, bot_command@bot_data.username y @bot_data.username
     if message.startswith(bot_command) or message.startswith(c.bot_mention):
