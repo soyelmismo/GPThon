@@ -58,7 +58,7 @@ class UserPrepare():
         self.stt_language = None
 
         self.max_tokens: int = 1024
-        self.output_tokens: int = None
+        # self.output_tokens: int = None
 
         self.temperature: float = 1.0
         self.top_p: float = 1.0
@@ -95,6 +95,8 @@ class UserPrepare():
     async def from_dict(self, data):
         for key, value in data.items():
             # Deserialize the value from JSON
+            if not hasattr(self, key):
+                continue
             try:
                 value = loads(value)
                 if isinstance(value, dict) and 'type' in value:

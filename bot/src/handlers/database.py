@@ -242,6 +242,8 @@ async def to_dict(obj):
     try:
         data = {}
         for key, value in obj.__dict__.items():
+            if not hasattr(obj, key):
+                continue
             if isinstance(value, set):
                 data[key] = dumps({ "type": "set", "value": list(value) })
             elif isinstance(value, bool):
