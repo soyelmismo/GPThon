@@ -37,7 +37,6 @@ async def compress_image(img, black_check = None, file_name = None, mime_type = 
             image = img
         else:
             # Si img no es un objeto PIL.Image, conviértelo a BytesIO y ábrelo como imagen
-            img = BytesIO(img)
             img.seek(0)
             image = Image.open(img)
 

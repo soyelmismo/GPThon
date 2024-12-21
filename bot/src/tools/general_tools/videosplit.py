@@ -3,6 +3,8 @@ import numpy as np
 import tempfile
 from bot.src.logs import logger
 from bot.src.config import vision_max_images_seq
+from PIL import Image
+from io import BytesIO
 
 async def extract_photos(bytes, mime):
     try:
@@ -50,8 +52,13 @@ async def extract_photos(bytes, mime):
 
         # Combinar las filas para obtener la imagen final
         grid_image = np.vstack(rows)
+        image = Image.fromarray(grid_image.astype(np.uint8))
 
-        return grid_image
+        # Convertir la imagen PIL a un objeto BytesIO
+        img_bytes = BytesIO()
+        image.save(img_bytes, format='JPEG')
+
+        return img_bytes
 
     except Exception as e:
         logger.error(f"couldn't extract images correctly from video: {str(e)}")
