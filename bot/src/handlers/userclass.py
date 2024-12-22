@@ -185,9 +185,10 @@ class UserPrepare():
             }
 
     def get_custom_sysprompt(self) -> list[dict]:
-        if self.sysprompt in ["empty", "None"]:
+        sylw = self.sysprompt.lower()
+        if sylw in ["empty", "none"]:
             return list()
-        elif self.sysprompt in ["reset"]:
+        elif sylw in ["reset", "default", "stock"]:
             self.sysprompt = str()
 
         new_system = f'{self.sysprompt if self.sysprompt else conf.bot_prompts.get("system", "")}'

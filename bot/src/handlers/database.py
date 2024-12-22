@@ -205,7 +205,6 @@ class IndexGroupInstances:
                 if not len(owners):
                     logger.debug(f'Grupo {group} siendo eliminado completamente. No más usuarios.')
                     indexed_deletions.append(group)
-        
         return indexed_deletions
 
     async def burn_me(self, id):
@@ -226,14 +225,17 @@ class IndexGroupInstances:
             return 0
 
     async def burn_group(self, id):
-        deleted = False
         try:
             logger.debug(f'Deleting group data: {id}')
+            cleaned_class = UserPrepare()
+            cleaned_class.daily = self.index[id].daily
+            # fuck your burn and create unlimited quota
+            # motherfucker
+            cleaned_class.used_tokens = self.index[id].used_tokens
             async with self.lock:
-                deleted = self.index.pop(id, False)
-            if self.valkey_enabled:
-                deleted = await self.r.delete(id)
-            return bool(deleted)
+                self.index[id] = cleaned_class
+
+            return self.index[id].user_id == str()
         except Exception as e:
             logger.error(f'Error during burn_me operation for id {id}: {str(e)}')
             return 0
