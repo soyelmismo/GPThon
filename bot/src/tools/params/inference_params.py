@@ -2,7 +2,6 @@ from bot.src.config import (
 command_image, command_stt
 )
 
-from bot.src.tools.params.tempclass import gotClass
 from bot.src.handlers.commands.rol import roleplay
 from bot.src.tools.tg_tools import send_msg
 
@@ -10,37 +9,28 @@ from bot.src.tools.other_tools import get_conversation
 
 
 from bot.src.tools.params.longAssDicts import (
-    all_args, allowed_in_groups,
-    allowed_no_value, warnings
+    allowed_in_groups, warnings
 )
 from bot.src.tools.params.mini_tools import (
     p_auto_bool, p_floats, p_group, p_improve, p_language, p_models,
-    p_photos, p_ratio, p_seed, p_sysprompt, manage_style, extract_arg_value,
+    p_photos, p_ratio, p_seed, p_sysprompt, manage_style,
     extract_prompt_args, final_img_step, sudo_manager
 )
 
 async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None, file_meta = None):
-    warning = warnings.get(command)
-    prompt, args = await extract_prompt_args(f' {prompt}')
-    thisShit = await gotClass(cls, command, prompt)
+    thisShit, prompt, args = await extract_prompt_args(cls, f' {prompt}', command)
     if command == "/select" and not args:
-        thisShit.warning = warning
-    elif command == command_image and (not prompt or len(prompt) < 5):
+        thisShit.warning = warnings.get(command)
+
+    if command == command_image and (not thisShit.prompt or len(thisShit.prompt) < 5):
         thisShit.warning = "🎨❓"
     elif command == command_stt and (not file_meta or file_meta["type"] not in ["audio", "transcription"]):
         thisShit.warning = '🎤❔'
 
-
     args_tried = []
 
-    for item in args:
-        arg, value = await extract_arg_value(item)
-        if command in all_args and (
-            (not value and arg not in allowed_no_value)
-            or arg not in all_args[command]
-            ):
-            thisShit.warning = f'⚠️**.{arg}**⚠️\n\n{warning}'
-            break
+    for arg, value in args.items():
+
         if thisShit.group_mode and arg not in allowed_in_groups and user_id not in thisShit.owners:
             thisShit.warning = "🫂 🚫"
             break
@@ -78,7 +68,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 value = await p_sysprompt(cls, thisShit, value[:1024], event, user_id, command)
                 if thisShit.warning:
                     break
-            case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget":
+            case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget" | "params_warning":
                 await p_auto_bool(thisShit, arg, value)
                 if thisShit.warning:
                     break
@@ -127,7 +117,6 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                     thisShit.warning = thisShit.stt_language
 
             case _:
-                thisShit.warning = warning
                 break
 
         if command == "/select":

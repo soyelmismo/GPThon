@@ -89,6 +89,7 @@ class UserPrepare():
         self.user_ids_index: dict = dict()
         self.last_seen: datetime = datetime.now()
         self.debug: bool = False
+        self.params_warning = False
         self.daily: dict = self.manage_daily_quotas()
         self.conversation: list[dict] = self.get_custom_sysprompt()
 
@@ -156,30 +157,35 @@ class UserPrepare():
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_token_limit"],
                 "unit": "tokens",
+                "custom_max": 0,
                 "banned_date": None
                 },
             conf.command_image: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_images_generation_limit"],
                 "unit": "images",
+                "custom_max": 0,
                 "banned_date": None
                 },
             "/vision": {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_visions"],
                 "unit": "vision images",
+                "custom_max": 0,
                 "banned_date": None
             },
             conf.command_stt: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_speech_to_text_seconds"],
                 "unit": "stt seconds",
+                "custom_max": 0,
                 "banned_date": None
                 },
             conf.command_tts: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_text_to_speech_seconds"],
                 "unit": "tts seconds",
+                "custom_max": 0,
                 "banned_date": None
                 }
             }
@@ -248,12 +254,26 @@ class UserPrepare():
                 self.chat_model = co.session_default_chat_model
 
         if "2" not in skip:
-            if "_" in command:
-                command = str(command.split("_")[0]).strip()
-            daily = self.daily.get(command, False)
             if self.daily[conf.command_chat]["max"] != conf.PAID_PLANS[self.tier]["daily_token_limit"]:
                 self.daily = self.manage_daily_quotas()
                 return None
+
+            if "_" in command:
+                command = str(command.split("_")[0]).strip()
+
+            if not self.daily[command].get("custom_max") or not isinstance(self.daily[command].get("custom_max", False), int):
+                self.daily[command]["custom_max"] = 0
+
+            daily = self.daily.get(command, False)
+
+            if daily["custom_max"]:
+                daily["max"] = daily["custom_max"]
+
+            if not daily or daily["current"] < daily["max"]:
+                return None
+
+            if self.daily[command]["current"] > 0:
+                await self.calculate_daily_reset(command)
 
             now_Date = datetime.now()
             iso_banned_date = self.daily[command].get("banned_date")
@@ -268,18 +288,13 @@ class UserPrepare():
                     self.daily[command]["banned_date"] = None
                     return None
                 else:
-                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{self.daily[command]["max"]} {self.daily[command]["unit"]} reached."
+                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{daily["max"]} {self.daily[command]["unit"]} reached."
                     support_message = f"🚫\n`{message}`\n🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}"
                     future_date = (raw_banned_date + timedelta(days=1) - now_Date).total_seconds()
                     hours, remainder = divmod(future_date, 3600)
                     minutes, seconds = divmod(remainder, 60)
                     support_message += f'\n\nOr wait `{int(hours):02}h {int(minutes):02}m {int(seconds):02}s`'
                     return support_message
-
-            if self.daily[command]["current"] > 0:
-                await self.calculate_daily_reset(command)
-            if not daily or daily["current"] < daily["max"]:
-                return None
 
             if "returnOnlyChatLimit" in skip:
                 return 1

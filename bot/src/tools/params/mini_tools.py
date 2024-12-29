@@ -7,27 +7,49 @@ import bot.src.tools.api_utils.api_selector as api_datas
 from hashlib import sha1
 from re import compile, findall, split
 
+from bot.src.tools.params.tempclass import gotClass
 
-from bot.src.tools.params.longAssDicts import shortened_args, img_ratios, iso_639_codes, iso_639_codes_txt
+from bot.src.tools.params.longAssDicts import shortened_args, img_ratios, iso_639_codes, iso_639_codes_txt, warnings, all_args, allowed_no_value
+
 from sys import _getframe
 
-#pattern = compile(r"(\s*\.|\n*\.)([a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*)") OK
 pattern = compile(r"(\s+\.[a-zA-Z0-9]+(\s+[^\s.]|[\S])*)") #OK OK GOOOOD
 
-async def extract_prompt_args(this):
+async def extract_prompt_args(cls, prompt, command):
+    thisShit = await gotClass(cls, command, prompt)
+    args = {}
     try:
-        splat = findall(pattern, this)
-        finds = [arg[0].strip()[1:] for arg in splat]
-        return split(r'(?<!["\'`])[\s\n]\.(?!["\'`])', this)[0].strip(), finds
+        matches = list(pattern.finditer(prompt))
+
+        prompt_parts = []
+        start = 0
+        for match in matches:
+            arg = match.group()
+            new_arg, value = await extract_arg_value(arg.strip())
+            if new_arg not in all_args[command]:
+                if not value and new_arg not in allowed_no_value:
+                    thisShit.warning = f'⚠️**.{arg}**⚠️\n\n{warnings.get(command)}'
+                    break
+                elif thisShit.params_warning:
+                    thisShit.warning = f'⚠️**.{arg}**⚠️\n\n{warnings.get(command)}'
+                    break
+            else:
+                args[new_arg] = value
+                prompt_parts.append(prompt[start:match.start()])
+                start = match.end()
+        prompt_parts.append(prompt[start:])
+        cleaned_prompt = ''.join(part for part in prompt_parts if part).strip()
+        thisShit.prompt = cleaned_prompt
+        return thisShit, cleaned_prompt, args
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
-        return this, None
-    
+        thisShit.prompt = prompt
+        return thisShit. prompt, {}
 
 async def extract_arg_value(item):
     arg, value = "", ""
     try:
-        arg = str(item.split(" ")[0]).strip()
+        arg = str(item.split(" ")[0]).strip().replace(".", "")
         arg = shortened_args.get(arg, arg)
         value = " ".join(item.split(" ")[1:]).strip()
         return arg, value
