@@ -224,6 +224,9 @@ class UserPrepare():
 
         new_daily_current = max(0, ceil(current_quota - recovery_amount))
         self.daily[command]["current"] = new_daily_current
+        u = self.daily[command]["unit"]
+        r = current_quota - self.daily[command]["current"]
+        logger.info(f'🤑 {self.user_id} recovered {r} {u} after last request. From {current_quota} to {new_daily_current}')
 
 
         logger.debug(f'last_seen {type(self.last_seen)} {self.last_seen}')
@@ -241,6 +244,9 @@ class UserPrepare():
     async def check_some_limits(self, command, skip = set()):
         if self.tier == "tier_god":
             return None
+
+        if command == "/embed": command = conf.command_chat
+
         if "1" not in skip:
             self.max_tokens = min(self.max_tokens, conf.PAID_PLANS[self.tier]["context_token_limit"])
 
@@ -264,20 +270,9 @@ class UserPrepare():
             if not self.daily[command].get("custom_max") or not isinstance(self.daily[command].get("custom_max", False), int):
                 self.daily[command]["custom_max"] = 0
 
-            daily = self.daily.get(command, False)
-
-            if daily["custom_max"]:
-                daily["max"] = daily["custom_max"]
-
-            if not daily or daily["current"] < daily["max"]:
-                return None
-
-            if self.daily[command]["current"] > 0:
-                await self.calculate_daily_reset(command)
-
             now_Date = datetime.now()
             iso_banned_date = self.daily[command].get("banned_date")
-            if not iso_banned_date and daily["current"] > daily["max"]:
+            if not iso_banned_date and self.daily[command]["current"] > self.daily[command]["max"]:
                 iso_banned_date = now_Date.isoformat()
                 self.daily[command]["banned_date"] = iso_banned_date
 
@@ -288,13 +283,25 @@ class UserPrepare():
                     self.daily[command]["banned_date"] = None
                     return None
                 else:
-                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{daily["max"]} {self.daily[command]["unit"]} reached."
+                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{self.daily[command]["max"]} {self.daily[command]["unit"]} reached."
                     support_message = f"🚫\n`{message}`\n🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}"
                     future_date = (raw_banned_date + timedelta(days=1) - now_Date).total_seconds()
                     hours, remainder = divmod(future_date, 3600)
                     minutes, seconds = divmod(remainder, 60)
                     support_message += f'\n\nOr wait `{int(hours):02}h {int(minutes):02}m {int(seconds):02}s`'
                     return support_message
+                
+            if self.daily[command]["current"] > 0:
+                await self.calculate_daily_reset(command)
+
+            daily = self.daily.get(command, False)
+
+
+            if daily["custom_max"]:
+                daily["max"] = daily["custom_max"]
+
+            if not daily or daily["current"] < daily["max"]:
+                return None
 
             if "returnOnlyChatLimit" in skip:
                 return 1
