@@ -204,7 +204,7 @@ async def extract_media(event, file_data, placeholder_msg = None, buttons = None
             await edit_msg(
                 event = event,
                 placeholder_msg = placeholder_msg,
-                text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: `{'{:.2%}'.format(current / total)}`",
+                text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: **{'{:.2%}'.format(current / total)}**",
                 buttons=buttons
             )
 
