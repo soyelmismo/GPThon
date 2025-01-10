@@ -226,7 +226,9 @@ class UserPrepare():
         self.daily[command]["current"] = new_daily_current
         u = self.daily[command]["unit"]
         r = current_quota - self.daily[command]["current"]
-        logger.info(f'🤑 {self.user_id} recovered {r} {u} after last request. From {current_quota} to {new_daily_current}')
+
+        if new_daily_current != current_quota:
+            logger.info(f'🤑 {self.user_id} recovered {r} {u} after last request. From {current_quota} to {new_daily_current}')
 
 
         logger.debug(f'last_seen {type(self.last_seen)} {self.last_seen}')
