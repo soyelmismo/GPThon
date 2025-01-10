@@ -104,7 +104,10 @@ async def post_init():
 def start_bot():
     """Start the bot."""
 
-    conf.bot = TelegramClient(conf.session_name, conf.api_id, conf.api_hash).start(bot_token=conf.bot_token)
+    conf.bot = TelegramClient(
+        conf.session_name, conf.api_id,
+        conf.api_hash, connection_retries=-1
+    ).start(bot_token=conf.bot_token)
     conf.bot.parse_mode = 'md'
     
     conf.bot.loop.run_until_complete(post_init())
