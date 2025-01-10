@@ -2,6 +2,10 @@ from json import dumps, loads
 from datetime import datetime
 from asyncio import sleep, Lock
 import redis.asyncio as valkey
+from redis.exceptions import ConnectionError, TimeoutError
+from redis.retry import Retry
+from redis.backoff import ConstantBackoff
+
 
 import bot.src.config as conf
 from bot.src.logs import logger
@@ -14,10 +18,11 @@ class ValkeyClient:
     def __init__(self, url):
         self.client = valkey.from_url(
             url=url, encoding="utf-8",
+            retry_on_error=[ConnectionError, TimeoutError],
             decode_responses=True,
             health_check_interval=10,
             socket_connect_timeout=5,
-            retry_on_timeout=True,
+            retry=Retry(ConstantBackoff(1), -1),
             socket_keepalive=True
             )
 
