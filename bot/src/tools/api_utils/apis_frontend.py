@@ -23,13 +23,15 @@ async def quick_chat_completion(self, user_id, model):
                 logger.debug(f"Returning quick_chat_completion `{response}`")
                 return response
             elif status == "cancel":
-                return response
+                return "Cancelled"
 
         except CancelledError:
-            return "Cancelled"
+            raise e
         except Exception as e:
             logger.error(f"failed quick chat completion. Retrying, {str(e)}")
         return None
+    except CancelledError:
+        raise e
     except Exception as e:
         logger.error(f'quick_chat_completion: {str(e)}')
         return None

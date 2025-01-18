@@ -92,7 +92,6 @@ async def cancel_task(task_type, user_id, task_id):
             await task
         except CancelledError:
             logger.info(f"Task {task_type} - Task ID: {task_id} - User: {user_id} - Cancelled.")
-            
             return "🫡✅"
         except Exception as e:
             logger.error(f"Error cancelling task {task_type} {task_id}: {e}")

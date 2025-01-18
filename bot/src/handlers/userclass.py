@@ -475,7 +475,7 @@ class UserPrepare():
                     return warning, None, None
                 logger.debug(f'{str(event.chat_id)}, {user_id}, {command}')
                 logger.debug("doing vision")
-                placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}📷", buttons = buttons)
+                placeholder_msg = await event.reply(f"...{choice(LOADING_CHOICES)}📷")
                 vision, file_meta = await do_vision(thisShit, event, user_id, prompt, placeholder_msg, buttons, file_meta)
                 if not vision:
                     logger.debug(f"No vision detected. Retuning None: {vision}")
