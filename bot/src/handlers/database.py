@@ -70,12 +70,18 @@ class IndexGroupInstances:
             except Exception as e:
                 logger.error(f"Failed to connect to Valkey: {str(e)}")
 
-    async def _get_manager(self, id=None):
+    async def _get_manager(self, id=None, only_query=True):
         if id in self.index:
             return self.index[id]
         mng = UserPrepare()
         if self.valkey_enabled:
-            mng = await self.quick_query(id, mng)
+            id_data = await self.r.hgetall(id)
+            if id_data:
+                logger.debug(f"Recovering {id} from Valkey")
+                await mng.from_dict(id_data)
+            elif not id_data and only_query:
+                del mng
+                return None
         async with self.lock:
             self.index[id] = mng
         return mng
@@ -118,13 +124,6 @@ class IndexGroupInstances:
             logger.error(f'db grab_class error: {str(e)}')
             raise e
 
-    async def quick_query(self, id, obj):
-        id_data = await self.r.hgetall(id)
-        if id_data:
-            logger.info(f"Recovering {id} from Valkey")
-            await obj.from_dict(id_data)
-        return obj
-
     async def save_to_valkey(self, key, data_dict, exec_date):
         await self.r.hset(key, mapping=data_dict)
         msg = f"ID {key} uploaded"
@@ -140,20 +139,14 @@ class IndexGroupInstances:
         accum = 0
         for tg_id in keys:
             if self.valkey_enabled:
-                id_data = await self.r.hgetall(tg_id)
-                last_seen = loads(id_data["last_seen"])["value"]
+                id_data = await self._get_manager(tg_id)
+                last_seen = id_data.last_seen if tg_id in self.index else None
             else:
                 last_seen = self.index[tg_id].last_seen if tg_id in self.index else None
             if last_seen:
-                if await date_calc(last_seen) > self.ttl:
-                    async with self.lock:
-                        self.index.pop(tg_id, None)
-                    logger.info(f"Deleting ID {tg_id} from database: TTL")
-                    accum += 1
-                    if self.valkey_enabled:
-                        await self.r.delete(tg_id)
+                accum = await self.burn_me(tg_id)
         if accum:
-            logger.info(f"Purged {accum} chats from database.")
+            logger.info(f"Purged {len(accum)} chats from database.")
 
     async def flush_memory(self):
         pending = len(self.index)
@@ -193,38 +186,35 @@ class IndexGroupInstances:
             raise e
 
     async def _delete_from_groups(self, id):
-        indexed_deletions = [id]
+        id_check_data = await self._get_manager(id)
+        indexed_deletions = [id] if await date_calc(id_check_data.last_seen) > self.ttl else list()
 
-        for group in list(self.index[id].groups):
-            group_data = None
-            if group in self.index:
-                group_data = self.index[group]
-                owners = group_data.owners
-            elif self.valkey_enabled:
-                group_data = await self.r.hgetall(group)
-                if group_data:
-                    owners = set(loads(group_data["owners"])["value"])
-
+        for group in list(id_check_data.groups):
+            group_data = await self._get_manager(group, only_query=True)
             if group_data:
-                owners.discard(id)
-                if not len(owners):
-                    logger.debug(f'Grupo {group} siendo eliminado completamente. No más usuarios.')
+                group_data.owners.discard(id)
+                if id == group_data.user_id or not len(group_data.owners):
+                    logger.info(f'Deleting group {group}. No more owners.')
                     indexed_deletions.append(group)
+                else:
+                    logger.info(f'{id} removed from group {group}.')
+            elif not group_data:
+                self.index[id].groups.discard(group)
         return indexed_deletions
 
     async def burn_me(self, id):
         try:
-            logger.debug(f'Removiendo usuario {id} de la base de datos')
             indexed_deletions = await self._delete_from_groups(id)
-            
-            async with self.lock:
-                for del_id in indexed_deletions:
-                    self.index.pop(del_id, None)
-            
-            if self.valkey_enabled:
-                await self.r.delete(*indexed_deletions)
-            
-            return 1
+            if indexed_deletions:
+                if id in indexed_deletions: logger.info(f"Deleting ID {id} from database: TTL")
+                async with self.lock:
+                    for del_id in indexed_deletions:
+                        self.index.pop(del_id, None)
+
+                if self.valkey_enabled:
+                    await self.r.delete(*indexed_deletions)
+
+            return indexed_deletions
         except Exception as e:
             logger.error(f'Error durante la operación burn_me para id {id}: {str(e)}')
             return 0
