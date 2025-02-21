@@ -12,7 +12,7 @@ from bot.src.logs import logger
 from bot.src.handlers import tasks
 from bot.src.handlers.userclass import UserPrepare
 
-SAVE_MINUTES = 10 if conf.save_db_bandwidth else 1
+SAVE_MINUTES = 60 if conf.save_db_bandwidth else 15
 
 class ValkeyClient:
     def __init__(self, url):
@@ -70,7 +70,7 @@ class IndexGroupInstances:
             except Exception as e:
                 logger.error(f"Failed to connect to Valkey: {str(e)}")
 
-    async def _get_manager(self, id=None, only_query=True):
+    async def _get_manager(self, id=None, only_query=False):
         if id in self.index:
             return self.index[id]
         mng = UserPrepare()
@@ -151,6 +151,7 @@ class IndexGroupInstances:
     async def flush_memory(self):
         pending = len(self.index)
         skipped_ids = 0
+        await self.remove_old_db_ids()
         if self.valkey_enabled and pending:
             logger.info(f"Trying to backup {pending} in-memory objects to Valkey...")
             exec_date = datetime.now()
@@ -162,7 +163,6 @@ class IndexGroupInstances:
         if skipped_ids:
             logger.info(f"Skipped {skipped_ids} IDs running tasks.")
 
-        await self.remove_old_db_ids()
 
     async def flush_task(self, force=0):
         if not force and self.valkey_enabled:
@@ -187,16 +187,17 @@ class IndexGroupInstances:
 
     async def _delete_from_groups(self, id):
         id_check_data = await self._get_manager(id)
-        indexed_deletions = [id] if await date_calc(id_check_data.last_seen) > self.ttl else list()
+        can_remove = bool(await date_calc(id_check_data.last_seen) > self.ttl)
+        indexed_deletions = [id] if can_remove else list()
 
         for group in list(id_check_data.groups):
             group_data = await self._get_manager(group, only_query=True)
             if group_data:
-                group_data.owners.discard(id)
-                if id == group_data.user_id or not len(group_data.owners):
+                group_data.owners.discard(id if can_remove else None) 
+                if can_remove and id == group_data.user_id or not len(group_data.owners):
                     logger.info(f'Deleting group {group}. No more owners.')
                     indexed_deletions.append(group)
-                else:
+                elif id not in group_data.owners:
                     logger.info(f'{id} removed from group {group}.')
             elif not group_data:
                 self.index[id].groups.discard(group)
