@@ -26,7 +26,7 @@ all_args = {
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
         "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget",
-        "sudo", "params_warning" # "output_tokens"
+        "sudo", "params_warning", "block_command" # "output_tokens"
         ],
 
     "/select": [
@@ -35,7 +35,7 @@ all_args = {
         "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
         "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
         "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize",
-        "deauthorize", "timeout", "sudo", "params_warning" # "output_tokens"
+        "deauthorize", "timeout", "sudo", "params_warning", "block_command" # "output_tokens"
         ],
 
 
@@ -118,7 +118,8 @@ shortened_args = {
     "disallow": "deauthorize",
     "out": "timeout",
     "f": "forget",
-    "pw": "params_warning"
+    "pw": "params_warning",
+    "bc": "block_command"
 }
 
 allowed_no_value = [
@@ -135,7 +136,7 @@ allowed_no_value = [
 allowed_in_groups = ["status", "download", "answer_stt",
                      "stt_language", "transcribe", "stt_language",
                      "raw", "improve_prompt", "style_name", "ratio", "raw",
-                     "timeout", "params_warning"
+                     "timeout", "params_warning", "photos"
                      ]
 
 warnings = {

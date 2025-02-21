@@ -21,7 +21,7 @@ valkey_password = str(env.get('VALKEY_PASSWORD', [''])[0]).strip()
 save_db_bandwidth = str(env.get('SAVE_VALKEY_BANDWIDTH', ['True'])[0]).lower().strip() == 'true'
 # Variables
 
-bot_name = str(env.get('BOT_NAME_COMMAND', ['hey'])[0]).lower().strip()
+bot_name = [name.lower().strip() for name in env.get('BOT_NAME_COMMAND', ['hey'])]
 
 command_chat = str(env.get('CHAT_COMMAND', ['/ask'])[0]).lower().strip()
 command_image = str(env.get('IMAGE_COMMAND', ['/img'])[0]).lower().strip()
@@ -123,3 +123,5 @@ async def send_logs_to_channel(text, parse_mode='markdown'):
             logger.error(f'send_logs_to_channel: {text}')
     except Exception as e:
         logger.error(f"Error in `send_logs_to_channel`. Probably wrong channel and thread id configured: {str(e)}")
+
+stt_commands = [command_stt, command_transcribe]

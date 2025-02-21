@@ -26,7 +26,8 @@ async def generate_image(thisShit, model, user_id, command):
                         temp_prompt = thisShit.style_data[1]
                     else:
                         temp_prompt = thisShit.prompt
-
+                    if img_api == "webraft": # fucking api with different endpoint 🖕🖕🖕🖕
+                        img_api = "webraft_imgs"
                     client = await select_api_data(img_api)
                     try:
                         response = await client.images.generate(

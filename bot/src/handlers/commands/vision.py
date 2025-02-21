@@ -10,7 +10,7 @@ from asyncio import CancelledError
 
 async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file_meta: dict):
     try:
-        file_meta = await extract_media(event, file_meta)
+        file_meta = await extract_media(self, event, file_meta)
         mime_type = file_meta["mime"]
         image_bytes = file_meta["file"]
         prompty = f"Be detailed about what is in the image, situation and / or transcription.\n\n{prompt}"

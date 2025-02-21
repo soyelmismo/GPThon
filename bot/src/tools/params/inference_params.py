@@ -2,7 +2,6 @@ from bot.src.config import (
 command_image, command_stt
 )
 
-from bot.src.handlers.commands.rol import roleplay
 from bot.src.tools.tg_tools import send_msg
 
 from bot.src.tools.other_tools import get_conversation
@@ -14,7 +13,7 @@ from bot.src.tools.params.longAssDicts import (
 from bot.src.tools.params.mini_tools import (
     p_auto_bool, p_floats, p_group, p_improve, p_language, p_models,
     p_photos, p_ratio, p_seed, p_sysprompt, manage_style,
-    extract_prompt_args, final_img_step, sudo_manager
+    extract_prompt_args, final_img_step, sudo_manager, block_command
 )
 
 async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None, file_meta = None):
@@ -40,6 +39,9 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
             continue
 
         match arg:
+            case "block_command":
+                thisShit.warning = await block_command(value, event, chat_id, user_id)
+                break
             case "sudo":
                 thisShit.warning = await sudo_manager(chat_id, event, value)
                 break
@@ -62,7 +64,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
             case "seed":
                 await p_seed(thisShit, value)
             case "rol":
-                await roleplay(event, user_id, chat_id, command)
+                await thisShit.set_roleplaying(event, user_id)
                 value = "🔞🔥"
             case "sysprompt":
                 value = await p_sysprompt(cls, thisShit, value[:1024], event, user_id, command)

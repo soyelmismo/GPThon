@@ -4,6 +4,7 @@ from random import choice
 from bot.src.logs import logger
 from bot.src.tools.api_utils import apis_frontend as oai
 import bot.src.tools.api_utils.api_selector as api_datas
+from bot.src.tools.tg_tools import command_list
 from hashlib import sha1
 from re import compile, findall, split
 
@@ -26,17 +27,17 @@ async def extract_prompt_args(cls, prompt, command):
         for match in matches:
             arg = match.group()
             new_arg, value = await extract_arg_value(arg.strip())
-            if new_arg not in all_args[command]:
+            if new_arg in all_args[command]:
+                args[new_arg] = value
+                prompt_parts.append(prompt[start:match.start()])
+                start = match.end()
+            else:
                 if not value and new_arg not in allowed_no_value:
                     thisShit.warning = f'⚠️**.{arg}**⚠️\n\n{warnings.get(command)}'
                     break
                 elif thisShit.params_warning:
                     thisShit.warning = f'⚠️**.{arg}**⚠️\n\n{warnings.get(command)}'
                     break
-            else:
-                args[new_arg] = value
-                prompt_parts.append(prompt[start:match.start()])
-                start = match.end()
         prompt_parts.append(prompt[start:])
         cleaned_prompt = ''.join(part for part in prompt_parts if part).strip()
         thisShit.prompt = cleaned_prompt
@@ -215,7 +216,9 @@ async def vip_model_user(userdata, model, user_id, chat_id):
 
 async def p_models(thisShit, chat_id, user_id, arg, value):
     try:
-        if not thisShit.roleplaying:
+        if thisShit.roleplaying:
+            value = forbidden
+        else:
             models_dict = await get_models_file(arg)
             if value in ["r", "random", "a", "any"]:
                 models_list = list(models_dict)
@@ -244,8 +247,6 @@ async def p_models(thisShit, chat_id, user_id, arg, value):
                 if not await vip_model_user(thisShit, value, user_id, chat_id):
                     value = {"text": f"🚫`{value}`🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}", "disable_delete": True}
 
-        else:
-            value = forbidden
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
         value = forbidden
@@ -410,5 +411,35 @@ async def p_language(thisShit, value):
             if value and value not in iso_639_codes:
                 value = {"text": f"⚠️**{value}**⚠️\n\n🧛", "file": iso_639_codes_txt, "disable_delete": True}
         thisShit.stt_language = value
+    except Exception as e:
+        logger.error(f"{_getframe().f_code.co_name}: {str(e)}")
+
+async def block_command(value, event, chat_id, user_id):
+    import bot.src.handlers.database as rdb
+    try:
+        grp = None
+        if chat_id not in rdb.db.index:
+            grp = await rdb.db.grab_class(chat_id = chat_id, user_id = user_id, make_group = False, private=event.is_private)
+        if (grp and not grp.group_mode) or (user_id not in rdb.db.index[chat_id].owners) or "select" in value:
+            return {"text": "🤡", "delete_user_message": True}
+
+        upd_comms = dict()
+
+        for command in list(val.replace("/", "").strip() for val in value.split(" ")):
+            command = f'/{command}'
+            if command in upd_comms: continue
+            elif command not in command_list:
+                return {"text": f"{command} ⁉... 🙅‍♀️🖕", "delete_user_message": True}
+
+            elif command in rdb.db.index[chat_id].blocked_commands:
+                rdb.db.index[chat_id].blocked_commands.discard(command)
+                upd = "✅"
+            elif command not in rdb.db.index[chat_id].blocked_commands:
+                rdb.db.index[chat_id].blocked_commands.add(command)
+                upd = "🚫"
+
+            upd_comms[command] = upd
+
+        return {"text": f"{'\n'.join(f'- `{key}` {check}' for key, check in upd_comms.items())}", "delete_user_message": True}
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")

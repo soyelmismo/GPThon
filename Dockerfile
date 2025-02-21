@@ -11,7 +11,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3-pip \
     python3-numpy \
-    sox \
+    ffmpeg \
     && \
     pip3 install --no-cache-dir -r requirements.txt \
     && \

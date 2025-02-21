@@ -7,7 +7,6 @@ from bot.src.wrappers.rate_limiter import rate_limit_handler
 from bot.src.tools.tg_tools import *
 from bot.src.tools.other_tools import *
 from bot.src.handlers.commands.select import select
-from bot.src.handlers.commands.rol import roleplay
 from bot.src.handlers.commands.ask import ask_gateway
 from bot.src.handlers.commands.reset import reset_conversation
 from bot.src.handlers.commands.retry import retry
@@ -21,7 +20,7 @@ indexer = {
     "/vision": ask_gateway,
     "/embed": ask_gateway,
     c.command_image: ask_gateway,
-    "/rol": roleplay if c.roleplay_enabled else False,
+    "/rol": ask_gateway,
     "/reset": reset_conversation,
     "/select": select,
     "/retry": retry
@@ -31,7 +30,6 @@ async def gateway(event) -> None:
     if c.bot_data.id == event.sender_id: return
     mentioned, command = await is_bot_mentioned(event)
     if not mentioned:
-        #logger.debug("No fue mencionado")
         return
     logger.debug("Bot mentioned. Continuing.")
     if not await whitelist_check(event):
@@ -41,8 +39,6 @@ async def gateway(event) -> None:
     logger.debug(f"Mentioned by {user_id} using command {command}")
     if not user_id:
         return
-    #if command == "/burnme":
-    #    return await burnme(event, user_id)
     elif command == "/help":
         return await help(event)
     chat_id = str(event.chat_id)
@@ -51,7 +47,6 @@ async def gateway(event) -> None:
     if command and callingTo:
         logger.debug(f'calling {command}')
         return await callingTo(event, user_id = user_id, chat_id=chat_id, command = command)
-    # raise events.StopPropagation
 
 @rate_limit_handler(3, 60)
 async def help(event):

@@ -27,8 +27,6 @@ from bot.src.handlers.commands.tts import tts_wrap
 from bot.src.handlers.commands.ask import ask_wrap, LOADING_CHOICES
 from bot.src.logs import logger
 
-stt_commands = [conf.command_stt, conf.command_transcribe]
-
 status_blacklist: list = ["conversation",
                         "sysprompt", "user_id",
                         "user_ids_index", "embedding_model",
@@ -81,6 +79,7 @@ class UserPrepare():
 
         self.groups: set = set()
         self.owners: set = set()
+        self.blocked_commands: set = set()
 
         self.sysprompt: str = str()
         self.allowed_models: set = set()
@@ -130,12 +129,10 @@ class UserPrepare():
         lines = []
 
         blist = status_blacklist.copy()
-        if self.roleplaying:
-            blist.extend(["chat_model"])
-        if not self.group_mode:
-            blist.extend(["group_mode", "random_names"])
-        if not self.tool_call:
-            blist.extend(["tool_model"])
+        blist.extend(["chat_model"] * self.roleplaying)
+        blist.extend(["group_mode", "random_names"] * (not self.group_mode))
+        blist.extend(["tool_model"] * (not self.tool_call))
+        blist.extend(["blocked_commands"] * (not self.blocked_commands))
 
         for key, value in vars(self).items():
             if key in ["groups", "owners", "allowed_models"]:
@@ -311,6 +308,7 @@ class UserPrepare():
         return None
 
     async def request_wrap(self, event, user_id, command = None) -> None:
+        if command in self.blocked_commands: return await event.reply("🙅‍♀️🖕")
         chat_id = str(event.chat_id)
         warning = await self.check_some_limits(command)
         if warning:
@@ -320,7 +318,7 @@ class UserPrepare():
 
         task_id = await self.random_uuid(chat_id, user_id)
         transcribed = None
-        file_meta: dict = await check_media_type(event)
+        command, file_meta = await check_media_type(self, event, command, self.transcribe)
         
         if command == conf.command_image:
             return await img_wrap(
@@ -328,7 +326,7 @@ class UserPrepare():
                 )
         elif file_meta["type"] == "audio":
             
-            if command not in stt_commands or (not self.transcribe and command == conf.command_transcribe):
+            if command not in conf.stt_commands or (not self.transcribe and command == conf.command_transcribe):
                 return
 
             transcribed = await stt_wrap(self, event, user_id, task_id)
@@ -342,10 +340,20 @@ class UserPrepare():
                 self, event, user_id, command, task_id
                 )
 
+        if command == "/rol" and conf.roleplay_enabled and not self.roleplaying:
+            await self.set_roleplaying(event, user_id)
         return await ask_wrap(
             self, event, user_id, transcribed,
             command, task_id, file_meta
             )
+
+    async def set_roleplaying(self, event, user_id):
+        self.roleplaying = True
+        self.chat_model = conf.default_roleplay_model
+        self.temperature = 0.7
+        self.top_p = 0.97
+        self.sysprompt = conf.bot_prompts.get("roleplay", "")
+        await self.delete_conversation(event, user_id, rol = 1, notify = 1)
 
     async def delete_conversation(self, event=None, user_id=None, rol = 0, notify = 0, summarized = 0):
         if (event and self.memory and self.group_mode and
@@ -425,7 +433,7 @@ class UserPrepare():
                     self.user_ids_index[user_id] = await self.gen_random_name()
                 else:
                     user_data: RequestedPeerUser = await conf.bot.get_entity(int(user_id)) # type: ignore
-                    new_name = (user_data.first_name if user_data.first_name
+                    new_name = (user_data.first_name if hasattr(user_data, "first_name") and user_data.first_name
                                 else user_data.username if user_data.username
                                 else ""
                                 )
@@ -491,7 +499,7 @@ class UserPrepare():
                     or file_meta["mime"] in conf.allowed_chat_mimetypes
                     )
                 ):
-                file_meta = await extract_media(event, file_meta)
+                file_meta = await extract_media(thisShit, event, file_meta)
                 list_convo.append({"role": "user", "content": f'{file_meta["name"]}: [{file_meta["file"]}]'})
             logger.debug(f'Returning prompt: {list_convo}')
             return placeholder_msg, list_convo, thisShit

@@ -5,7 +5,7 @@ from bot.src.logs import logger
 from asyncio import sleep, CancelledError
 from telethon.errors.rpcerrorlist import MessageDeleteForbiddenError
 from io import BytesIO
-from re import search, sub
+from re import search, sub, DOTALL
 
 
 command_list = [c.command_chat,
@@ -16,7 +16,7 @@ command_list = [c.command_chat,
                 c.command_tts
                 ]
 
-async def check_media_type(event) -> dict:
+async def check_media_type(self, event, command, can_transcribe_video) -> dict:
     file_data = {"file": any, "type": "",
                 "mime": "", "size": 0,
                 "name": ""}
@@ -39,8 +39,8 @@ async def check_media_type(event) -> dict:
                     file_data["mime"] = "jpeg"
                 case MessageMediaDocument():
                     media = media.document
-                    
-                    if media.size > MAX_DOWNLOAD_MB:
+                    mfs = c.PAID_PLANS[self.tier]["max_filesize_mb"] * 1024 * 1024
+                    if media.size > mfs:
                         file_data["size"] = None
                     else:
                         file_data["size"] = media.size # type: ignore
@@ -48,7 +48,11 @@ async def check_media_type(event) -> dict:
                     file_data["type"], file_data["mime"] = media.mime_type.split("/") # type: ignore
                     for instance_type in media.attributes:
                         if isinstance(instance_type, DocumentAttributeVideo):
-                            if instance_type.duration < 15:
+                            if (command in c.stt_commands
+                                or can_transcribe_video) and not instance_type.nosound:
+                                command = c.command_stt
+                                file_data["type"] = "audio"
+                            elif instance_type.duration < 15:
                                 file_data["type"] = "image"
                         if isinstance(instance_type, DocumentAttributeFilename): # type: ignore
                             file_data["name"] = instance_type.file_name # type: ignore
@@ -59,33 +63,50 @@ async def check_media_type(event) -> dict:
     except Exception as e:
         logger.error(f"Error in check_media_type: {str(e)}")
     finally:
-        return file_data
+        return command, file_data
 
 async def is_bot_mentioned(event):
+    command = ""  # Inicializar para evitar NameError
     try:
         message = event.message
-        command = str(message.message).split(" ")[0].split("\n")[0].lower().strip()
-        command = sub(r'[^\w]+$','', command)
-        bot_alias = ""
 
-        audio = (event.message.document and event.message.document.mime_type.startswith("audio"))
-        if "@" in command:
-            command, bot_alias = command.split("@")
-        if (not audio and (event.is_private and command not in command_list
-            or command not in command_list and bot_alias == c.bot_data.username
-            or command == c.bot_name
-            or message.mentioned and command not in command_list)
-            ):
+        # Procesamiento inicial del comando
+        first_part = str(message.message).split(" ")[0].split("\n")[0].lower().strip()
+        cleaned_command = sub(r'[^\w]+$', '', first_part)
+        
+        # Separar comando y alias
+        command_part, bot_alias = cleaned_command, ""
+        if "@" in cleaned_command:
+            command_part, bot_alias = map(str.strip, cleaned_command.split("@", 1))
+
+        command = command_part  # Comando final a usar
+        
+        # Verificar si es audio
+        audio = bool(
+            message.document and 
+            message.document.mime_type.startswith("audio")
+        )
+
+        # Determinar condiciones
+        command_unknown = command not in command_list
+
+        # Evaluar condiciones principales
+        conditions = [
+            event.is_private and command_unknown,
+            command_unknown and bot_alias == c.bot_data.username,
+            command in c.bot_name,
+            message.mentioned and command_unknown
+        ]
+
+        if not audio and any(conditions):
             return True, c.command_chat
-        elif command in command_list:
-            return True, command
         elif audio:
             return True, c.command_transcribe
         else:
-            return False, command
+            return bool(command in command_list), command
 
     except Exception as e:
-        logger.error(f"is_bot_mentioned: {str(e)}")
+        logger.error(f"Error en is_bot_mentioned: {str(e)}", exc_info=True)
         return False, command
 
 async def whitelist_check(event):
@@ -176,6 +197,9 @@ async def remove_command(conversation, event, bot_command = "") -> str:
             if replied.startswith("✍️") and "👗" in replied:
                 replied = search('(?s)(?=[^✍️ ])(.*?)(?=\n👗)', replied)
                 replied = replied.group(1).strip()
+            if replied.startswith("<think>") and "</think>" in replied:
+                replied = sub(r'<think>.*?</think>', '', replied, flags=DOTALL).strip()
+                replied = replied.strip()
             if replied.startswith(bot_command) or replied.startswith(c.bot_mention):
                 replied = await remove_mentions(replied, bot_command)
             if bot_command in [c.command_image, "/select", "/embed"]:
@@ -195,10 +219,9 @@ async def remove_mentions(message, bot_command):
     message = message.replace(c.bot_mention, "").strip()
     return message
 
-MAX_DOWNLOAD_MB = 25 * 1024 * 1024
 DOWNLOAD_THRESHOLD = 1 * 1024 * 1024
 
-async def extract_media(event, file_data, placeholder_msg = None, buttons = None) -> dict:
+async def extract_media(self, event, file_data, placeholder_msg = None, buttons = None) -> dict:
     try:
         async def download_progress(current, total):
             await edit_msg(
@@ -207,8 +230,8 @@ async def extract_media(event, file_data, placeholder_msg = None, buttons = None
                 text = f"🔽🎤, 🖐️⏳...\n\n`{current//1000}kB` > `{total//1000}kB`: **{'{:.2%}'.format(current / total)}**",
                 buttons=buttons
             )
-
-        if file_data["size"] > MAX_DOWNLOAD_MB or not file_data.get("file"):
+        mfs = c.PAID_PLANS[self.tier]["max_filesize_mb"] * 1024 * 1024
+        if file_data["size"] > mfs or not file_data.get("file"):
             raise FileNotFoundError("File is too big.")
         file_data["file"] = await event.client.download_media(
             file_data["file"],

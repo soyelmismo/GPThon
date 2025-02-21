@@ -4,5 +4,6 @@
     "IDX.aI.enableInlineCompletion": true,
     "IDX.aI.enableCodebaseIndexing": true,
     "python.terminal.activateEnvironment": true,
-    "python.venvPath": "${workspaceFolder}/.venv"
+    "python.venvPath": "${workspaceFolder}/.venv",
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe"
 }
