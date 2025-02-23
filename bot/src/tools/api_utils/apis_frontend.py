@@ -85,7 +85,7 @@ async def call_api(self, command = None, user_id = None, media=None, model = Non
                 tries = 3
                 raise Exception(f"no command matched {command} from {user_id}")
         except CancelledError as e:
-            if "Cancelled by user." not in str(e):
+            if "nDDñd" not in str(e):
                 raise e
             else:
                 # trying = False

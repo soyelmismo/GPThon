@@ -132,7 +132,7 @@ class IndexGroupInstances:
             async with self.lock:
                 self.index.pop(key)
                 msg += " and deleted locally."
-        logger.info(msg)
+        logger.debug(msg)
 
     async def remove_old_db_ids(self):
         keys = await self.r.keys('*') if self.valkey_enabled else [*self.index]
@@ -172,6 +172,7 @@ class IndexGroupInstances:
                 while True:
                     if not force:
                         await sleep(self.save_each)
+                    logger.info("Cleaning chat instances.")
                     await self.flush_memory()
                     if force:
                         logger.info("Force flushing done.")

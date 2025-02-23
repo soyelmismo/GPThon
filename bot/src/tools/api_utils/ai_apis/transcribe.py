@@ -35,11 +35,11 @@ async def request_transcription(thisShit, media, user_id, command):
                                 response_format="text",
                                 #temperature = thisShit.temperature,
                                 language = thisShit.stt_language,
-                                prompt = thisShit.prompt,
+                                #prompt = thisShit.prompt,
                                 timeout=60
                             )
                         except CancelledError as e:
-                            if "Cancelled by user." not in str(e):
+                            if "nDDñd" not in str(e):
                                 continue
                             else:
                                 raise e    

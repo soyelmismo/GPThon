@@ -42,6 +42,6 @@ async def do_vision(self, event, user_id, prompt, placeholder_msg, buttons, file
             return None, file_meta
         return vision_response, file_meta
     except CancelledError as e:
-        if "Cancelled by user." in str(e):
+        if "nDDñd" in str(e):
             await placeholder_msg.delete()
             return None, file_meta

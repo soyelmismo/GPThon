@@ -251,7 +251,7 @@ async def extract_media(self, event, file_data, placeholder_msg = None, buttons 
         return file_data
 
     except CancelledError as e:
-        if "Cancelled by user." in str(e):
+        if "nDDñd" in str(e):
             return "Task_cancellled"
     except Exception as e:
         logger.error(f"Error in extract_media: {str(e)}")

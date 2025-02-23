@@ -39,7 +39,7 @@ async def generate_image(thisShit, model, user_id, command):
                             timeout=60
                         )
                     except CancelledError as e:
-                        if "Cancelled by user." not in str(e):
+                        if "nDDñd" not in str(e):
                             continue
                         else:
                             raise e

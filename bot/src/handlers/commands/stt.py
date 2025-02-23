@@ -106,6 +106,7 @@ async def transcode_audio(file_meta):
                     "-ar", "16000",
                     "-ac", "1",
                     "-c:a", "libopus",
+                    "-b:a", "16k",  # Ajuste del bitrate
                     "-y",  # Sobrescribir archivo si existe
                     opus_file.name
                 ]

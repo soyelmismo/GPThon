@@ -29,7 +29,7 @@ async def request_text_to_speech(thisShit, user_id, command):
                                 timeout=15
                             )             
                         except CancelledError as e:
-                            if "Cancelled by user." not in str(e):
+                            if "nDDñd" not in str(e):
                                 continue
                             else:
                                 raise e           

@@ -33,7 +33,7 @@ async def request_embedding(thisShit, model, user_id, command):
                         try:
                             response = await client.embeddings.create(**payload)
                         except CancelledError as e:
-                            if "Cancelled by user." not in str(e):
+                            if "nDDñd" not in str(e):
                                 continue
                             else:
                                 raise e

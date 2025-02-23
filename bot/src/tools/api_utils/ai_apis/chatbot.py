@@ -148,7 +148,7 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
                 try:
                     response = await client.chat.completions.create(**payload)
                 except CancelledError as e:
-                    if "Cancelled by user." not in str(e):
+                    if "nDDñd" not in str(e):
                         continue
                     raise e
                 except Exception as e:
