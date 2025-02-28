@@ -12,7 +12,7 @@ from bot.src.logs import logger
 from bot.src.handlers import tasks
 from bot.src.handlers.userclass import UserPrepare
 
-SAVE_MINUTES = 60 if conf.save_db_bandwidth else 15
+SAVE_MINUTES = 60 if conf.save_db_bandwidth else 5
 
 class ValkeyClient:
     def __init__(self, url):
