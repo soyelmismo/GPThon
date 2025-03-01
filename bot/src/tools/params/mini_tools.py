@@ -152,13 +152,13 @@ async def p_floats(thisShit, arg, value):
 async def max_value_param(thisShit, arg, value):
     try:
         if arg in ["temperature"]:
-            pmin, pmax = 0, 2
+            pmin, pmax = 0, 1.5
         elif arg in ["timeout"]:
             pmin, pmax = 3, 600
         elif arg in ["top_p"]:
             pmin, pmax = 0, 1
         elif arg in ["presence_penalty", "frequency_penalty"]:
-            pmin, pmax = -2, 2
+            pmin, pmax = -1.5, 1.5
         else:
             pmin, pmax = 32, conf.PAID_PLANS[thisShit.tier]["context_token_limit"]
         value = min(max(value, pmin), pmax)
