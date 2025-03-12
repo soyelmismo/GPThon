@@ -12,7 +12,7 @@ from bot.src.logs import logger
 from bot.src.handlers import tasks
 from bot.src.handlers.userclass import UserPrepare
 
-SAVE_MINUTES = 60 if conf.save_db_bandwidth else 5
+SAVE_MINUTES = 60 if conf.save_db_bandwidth else 1
 
 class ValkeyClient:
     def __init__(self, url):
@@ -52,6 +52,7 @@ class IndexGroupInstances:
         self.index = {}
         self.ttl = ttl
         self.save_each = save_each
+        self.clean_each = 43200
         self.loop = loop
         
         if valkey_client:
@@ -70,8 +71,9 @@ class IndexGroupInstances:
             except Exception as e:
                 logger.error(f"Failed to connect to Valkey: {str(e)}")
 
-    async def _get_manager(self, id=None, only_query=False):
+    async def _get_manager(self, id=None, only_query=False, skip_quotaCheck = False):
         if id in self.index:
+            await self.index[id].calculate_all_daily_quotas(skip_quotaCheck)
             return self.index[id]
         mng = UserPrepare()
         if self.valkey_enabled:
@@ -84,6 +86,7 @@ class IndexGroupInstances:
                 return None
         async with self.lock:
             self.index[id] = mng
+        await mng.calculate_all_daily_quotas(skip_quotaCheck)
         return mng
 
     async def _create_group_chat(self, mng, user_id=None):
@@ -113,8 +116,9 @@ class IndexGroupInstances:
                         async with self.lock:
                             self.index[user_id].groups.add(chat_id)
                 if mng.group_mode:
-                    t_mng = await self._get_manager(user_id)
-                    t_mng.last_seen = datetime.now()
+                    # t_mng = await self._get_manager(user_id)
+                    # t_mng.last_seen = datetime.now()
+                    # mng.last_seen = datetime.now()
                     return mng
 
             mng = await self._get_manager(user_id)
@@ -132,14 +136,14 @@ class IndexGroupInstances:
             async with self.lock:
                 self.index.pop(key)
                 msg += " and deleted locally."
-        logger.debug(msg)
+        logger.info(msg)
 
     async def remove_old_db_ids(self):
         keys = await self.r.keys('*') if self.valkey_enabled else [*self.index]
         accum = 0
         for tg_id in keys:
             if self.valkey_enabled:
-                id_data = await self._get_manager(tg_id)
+                id_data = await self._get_manager(tg_id, skip_quotaCheck = True)
                 last_seen = id_data.last_seen if tg_id in self.index else None
             else:
                 last_seen = self.index[tg_id].last_seen if tg_id in self.index else None
@@ -151,7 +155,6 @@ class IndexGroupInstances:
     async def flush_memory(self):
         pending = len(self.index)
         skipped_ids = 0
-        await self.remove_old_db_ids()
         if self.valkey_enabled and pending:
             logger.info(f"Trying to backup {pending} in-memory objects to Valkey...")
             exec_date = datetime.now()
@@ -172,7 +175,7 @@ class IndexGroupInstances:
                 while True:
                     if not force:
                         await sleep(self.save_each)
-                    logger.info("Cleaning chat instances.")
+                    logger.debug("Cleaning chat instances.")
                     await self.flush_memory()
                     if force:
                         logger.info("Force flushing done.")
@@ -186,13 +189,36 @@ class IndexGroupInstances:
             logger.error(f"Error in schedule_flush: {str(e)}")
             raise e
 
+    async def clean_db_task(self, force=0):
+        if not force and self.valkey_enabled:
+            logger.info(f"Scheduled to clean database IDs every {self.clean_each} seconds.")
+        try:
+            if self.valkey_enabled:
+                while True:
+                    if not force:
+                        await sleep(self.clean_each)
+                    logger.info("Cleaning DB IDs.")
+                    await self.remove_old_db_ids()
+                    if force:
+                        logger.info("Force flushing done.")
+                        break
+            else:
+                if force:
+                    logger.warning("Tried to flush database forcibly, but Valkey not detected.")
+                else:
+                    logger.warning("Valkey not detected. Flush scheduling disabled.")
+        except Exception as e:
+            logger.error(f"Error in schedule_flush: {str(e)}")
+            raise e
+
+
     async def _delete_from_groups(self, id):
-        id_check_data = await self._get_manager(id)
+        id_check_data = await self._get_manager(id, skip_quotaCheck=True)
         can_remove = bool(await date_calc(id_check_data.last_seen) > self.ttl)
         indexed_deletions = [id] if can_remove else list()
 
         for group in list(id_check_data.groups):
-            group_data = await self._get_manager(group, only_query=True)
+            group_data = await self._get_manager(group, only_query=True, skip_quotaCheck=True)
             if group_data:
                 group_data.owners.discard(id if can_remove else None) 
                 if can_remove and id == group_data.user_id or not len(group_data.owners):

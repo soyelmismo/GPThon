@@ -71,34 +71,47 @@ apisproxy=proxy_raw
 
 logger.info("ETH: 0x69b81AaE4e93bC5432dD2eFF320c4B43721419c9")
 
-openai_style_apis = {}
-
 basepath = Path(__file__).resolve().parents[1]
 logger.debug(f'Base path: {basepath}')
-apis_files = os.listdir(Path(f'{basepath}/resources/apis'))
-logger.debug(f'apis_files: {basepath}')
-    
-available_api_json_files = [file for file in apis_files if file.endswith(".json")]
-for fetcher in available_api_json_files:
-    with open(basepath / "resources" / "apis" / fetcher, "r", encoding="utf-8") as infile:
-        openai_style_apis[fetcher] = load(infile)
 
+openai_style_apis = {}
 roleplay_enabled = False
-if openai_style_apis.get("apis_roleplay.json"):
-    roleplay_enabled = True
+bot_prompts = {}
+API_WAIT_CONFIG = {}
+PAID_PLANS = {}
 
-with open(basepath / "resources" / "prompts.json", "r", encoding="utf-8") as infile:
-    bot_prompts = load(infile)
+def load_configurations():
+    global openai_style_apis, roleplay_enabled, bot_prompts, API_WAIT_CONFIG, PAID_PLANS
 
-API_WAIT_CONFIG = dict()
+    # Cargar archivos de APIs
+    apis_dir = basepath / "resources" / "apis"
+    apis_files = os.listdir(apis_dir)
+    logger.debug(f'Archivos de APIs encontrados: {apis_files}')
 
-with open(basepath / "resources" / "apis_ratelimits.json", "r", encoding="utf-8") as infile:
-    API_WAIT_CONFIG = load(infile)
+    # Limpiar y recargar APIs
+    openai_style_apis.clear()
+    for fetcher in [f for f in apis_files if f.endswith(".json")]:
+        with open(apis_dir / fetcher, "r", encoding="utf-8") as infile:
+            openai_style_apis[fetcher] = load(infile)
 
-PAID_PLANS = dict()
-with open(basepath / "resources" / "vip_plans.json", "r", encoding="utf-8") as infile:
-    PAID_PLANS = load(infile)
+    # Actualizar estado de roleplay
+    roleplay_enabled = "apis_roleplay.json" in openai_style_apis
 
+    # Cargar prompts del bot
+    with open(basepath / "resources" / "prompts.json", "r", encoding="utf-8") as infile:
+        bot_prompts = load(infile)
+
+    # Cargar configuración de rate limits
+    with open(basepath / "resources" / "apis_ratelimits.json", "r", encoding="utf-8") as infile:
+        API_WAIT_CONFIG = load(infile)
+
+    # Cargar planes VIP
+    with open(basepath / "resources" / "vip_plans.json", "r", encoding="utf-8") as infile:
+        PAID_PLANS = load(infile)
+    
+    return "Configs 🆗"
+
+logger.info(load_configurations())
 
 allowed_chat_mimetypes = ["plain", "javascript"]
 allowed_image_mimetypes = ["jpeg", "webp", "webm", "mp4"]

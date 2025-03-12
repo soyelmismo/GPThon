@@ -183,7 +183,6 @@ async def handle_api_response(
                     responseapi.__anext__(),
                     timeout=60
                 )
-
                 if status == "cancel":
                     await placeholder_msg.delete()
                     chat_pending = False

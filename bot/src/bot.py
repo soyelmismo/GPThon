@@ -88,6 +88,7 @@ async def post_init():
     rdb.start_db()
     await rdb.db.initialize_valkey()
     conf.bot._loop.create_task(rdb.db.flush_task())
+    conf.bot._loop.create_task(rdb.db.clean_db_task())
     conf.bot._loop.create_task(monitor_tasks())
     conf.bot._loop.create_task(api_rate_limiter_task())
     if models_grabber:

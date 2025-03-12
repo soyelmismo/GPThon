@@ -27,6 +27,8 @@ from bot.src.handlers.commands.tts import tts_wrap
 from bot.src.handlers.commands.ask import ask_wrap, LOADING_CHOICES
 from bot.src.logs import logger
 
+daily_commands = [conf.command_chat, conf.command_image, "/vision", conf.command_stt, conf.command_tts]
+
 status_blacklist: list = ["conversation",
                         "sysprompt", "user_id",
                         "user_ids_index", "embedding_model",
@@ -89,7 +91,7 @@ class UserPrepare():
         self.last_seen: datetime = datetime.now()
         self.debug: bool = False
         self.params_warning = False
-        self.daily: dict = self.manage_daily_quotas()
+        self.daily: dict = dict()
         self.conversation: list[dict] = self.get_custom_sysprompt()
 
     async def from_dict(self, data):
@@ -141,6 +143,8 @@ class UserPrepare():
                     continue
             elif key in blist:
                 continue
+            elif key in ["chat_model"]:
+                lines.append(f'daily_tokens: {self.daily[conf.command_chat]["current"]}/{self.daily[conf.command_chat]["max"] + self.daily[conf.command_chat]["custom_max"]}')
             elif key in ["tier"]:
                 value = conf.PAID_PLANS[value]["name"]
             elif key in ["used_tokens"]:
@@ -154,35 +158,35 @@ class UserPrepare():
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_token_limit"],
                 "unit": "tokens",
-                "custom_max": 0,
+                "custom_max": self.daily.get(conf.command_chat, {}).get("custom_max", 0) if self.daily else 0,
                 "banned_date": None
                 },
             conf.command_image: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_images_generation_limit"],
                 "unit": "images",
-                "custom_max": 0,
+                "custom_max": self.daily.get(conf.command_image, {}).get("custom_max", 0) if self.daily else 0,
                 "banned_date": None
                 },
             "/vision": {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_visions"],
                 "unit": "vision images",
-                "custom_max": 0,
+                "custom_max": self.daily.get("/vision", {}).get("custom_max", 0) if self.daily else 0,
                 "banned_date": None
             },
             conf.command_stt: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_speech_to_text_seconds"],
                 "unit": "stt seconds",
-                "custom_max": 0,
+                "custom_max": self.daily.get(conf.command_stt, {}).get("custom_max", 0) if self.daily else 0,
                 "banned_date": None
                 },
             conf.command_tts: {
                 "current": 0,
                 "max": conf.PAID_PLANS[self.tier]["daily_text_to_speech_seconds"],
                 "unit": "tts seconds",
-                "custom_max": 0,
+                "custom_max": self.daily.get(conf.command_tts, {}).get("custom_max", 0) if self.daily else 0,
                 "banned_date": None
                 }
             }
@@ -208,15 +212,23 @@ class UserPrepare():
             liste.extend([{"role": "user", "content": "🫡"},{"role": "assistant", "content": "🫡"}])
         return liste
 
-    async def calculate_daily_reset(self, command):
+    async def calculate_all_daily_quotas(self, skip_quotaCheck = False):
+        if skip_quotaCheck:
+            return
+
+        for command in daily_commands:
+            await self.calculate_daily_reset(command, log_recovery=False)
+        self.last_seen = datetime.now()
+
+    async def calculate_daily_reset(self, command, log_recovery=True):
         now_date = datetime.now()
         time_inactive = now_date - self.last_seen
 
         hours_inactive = time_inactive.total_seconds() / 3600
         current_quota = self.daily[command]["current"]
-        max_quota = self.daily[command]["max"]
+        max_quota = self.daily[command]["max"] + (self.daily[command]["custom_max"] if self.daily[command]["custom_max"] else 0)
 
-        recovery_per_hour = max_quota / 24
+        recovery_per_hour = max_quota / 8
         recovery_amount = recovery_per_hour * hours_inactive * DAILY_RECOVERY_RATE
 
         new_daily_current = max(0, ceil(current_quota - recovery_amount))
@@ -224,7 +236,7 @@ class UserPrepare():
         u = self.daily[command]["unit"]
         r = current_quota - self.daily[command]["current"]
 
-        if new_daily_current != current_quota:
+        if new_daily_current != current_quota and log_recovery:
             logger.info(f'🤑 {self.user_id} recovered {r} {u} after last request. From {current_quota} to {new_daily_current}')
 
 
@@ -246,6 +258,7 @@ class UserPrepare():
 
         if command == "/embed": command = conf.command_chat
 
+        
         if "1" not in skip:
             self.max_tokens = min(self.max_tokens, conf.PAID_PLANS[self.tier]["context_token_limit"])
 
@@ -259,6 +272,7 @@ class UserPrepare():
                 self.chat_model = co.session_default_chat_model
 
         if "2" not in skip:
+            if not self.daily: self.daily = self.manage_daily_quotas()
             if self.daily[conf.command_chat]["max"] != conf.PAID_PLANS[self.tier]["daily_token_limit"]:
                 self.daily = self.manage_daily_quotas()
                 return None
@@ -297,7 +311,7 @@ class UserPrepare():
 
 
             if daily["custom_max"]:
-                daily["max"] = daily["custom_max"]
+                daily["max"] += daily["custom_max"]
 
             if not daily or daily["current"] < daily["max"]:
                 return None

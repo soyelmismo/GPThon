@@ -361,6 +361,9 @@ async def sudo_manager(chat_id, event, value):
         import bot.src.handlers.database as rdb
         query_data = [vall.strip() for vall in value.split(" ")]
         if len(query_data) != 3:
+            match query_data[0]:
+                case "configs":
+                    return {"text": conf.load_configurations(), "delete_user_message": False}
             return {"text": f"`{query_data}`\n\nIt isn't 3 parameters length...", "delete_user_message": False}
         arg = query_data[0]
         tg_id = query_data[1]
