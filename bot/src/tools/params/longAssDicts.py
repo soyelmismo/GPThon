@@ -125,7 +125,7 @@ shortened_args = {
 allowed_no_value = [
 
 "rol", "status", "download", "sysprompt", "chat_model",
-"img_model", "group_mode", "random_names", "streaming",
+"img_model", "random_names", "streaming",
 "memory", "randomizer", "answer_stt", "improve_prompt",
 "summarize", "transcribe", "tool_call", "to_tts",
 "tts_voice", "debug", "raw", "embedding_model", "forget",

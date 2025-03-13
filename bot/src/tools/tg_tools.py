@@ -9,7 +9,7 @@ from re import search, sub, DOTALL
 
 
 command_list = [c.command_chat,
-                "/rol",
+                "/rol", "/burnme",
                 "/reset", "/select", "/retry",
                 c.command_stt, "/vision",
                 c.command_image, "/help", "/embed",

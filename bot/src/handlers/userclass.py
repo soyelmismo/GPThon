@@ -53,14 +53,14 @@ class UserPrepare():
         self.tier: str = "tier_0"
         self.used_tokens: int = 0
 
-        self.transcribe: bool = False
-        self.answer_stt: bool = False
+        self.transcribe: bool = True
+        self.answer_stt: bool = True
         self.stt_language = None
 
-        self.max_tokens: int = 1024
+        self.max_tokens: int = 4000
         # self.output_tokens: int = None
 
-        self.temperature: float = 1.0
+        self.temperature: float = 0.5
         self.top_p: float = 1.0
         self.frequency_penalty: float = 0.0
         self.presence_penalty: float = 0.0
@@ -73,7 +73,7 @@ class UserPrepare():
         self.timeout: float = 6.0
         self.roleplaying: bool = False
         self.randomizer: bool = False
-        self.summarize: bool = True
+        self.summarize: bool = False
         self.tool_call: bool = False
 
         self.tts_voice: str = co.session_default_tts_model
@@ -226,9 +226,9 @@ class UserPrepare():
 
         hours_inactive = time_inactive.total_seconds() / 3600
         current_quota = self.daily[command]["current"]
-        max_quota = self.daily[command]["max"] + (self.daily[command]["custom_max"] if self.daily[command]["custom_max"] else 0)
+        max_quota = self.daily[command]["max"] + self.daily[command].get("custom_max", 0)
 
-        recovery_per_hour = max_quota / 8
+        recovery_per_hour = max_quota / 18
         recovery_amount = recovery_per_hour * hours_inactive * DAILY_RECOVERY_RATE
 
         new_daily_current = max(0, ceil(current_quota - recovery_amount))

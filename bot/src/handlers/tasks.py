@@ -52,7 +52,7 @@ async def add_task(task_type, user_id, task, task_id):
         if len(index_tasks[user_id][task_type]) < task_limits[task_type]:
             task_wrapper = c.bot._loop.create_task(task)
             index_tasks[user_id][task_type][task_id] = {"task": task_wrapper, "created_at": datetime.now()}
-            logger.info(f"Task {task_type} - User: {user_id} - Queued.")
+            logger.info(f"Task {task_type} {task_id} - User: {user_id} - Queued.")
         else:
             logger.info(f"Can't add more tasks {task_type}. Please wait.")
             return "CantAddMore"

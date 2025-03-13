@@ -11,6 +11,7 @@ from bot.src.handlers.commands.ask import ask_gateway
 from bot.src.handlers.commands.reset import reset_conversation
 from bot.src.handlers.commands.retry import retry
 from bot.src.handlers.tasks import cancel_task
+from bot.src.handlers.commands.burnme import burnme
 
 indexer = {
     c.command_chat: ask_gateway,
@@ -21,6 +22,7 @@ indexer = {
     "/embed": ask_gateway,
     c.command_image: ask_gateway,
     "/rol": ask_gateway,
+    "/burnme": burnme,
     "/reset": reset_conversation,
     "/select": select,
     "/retry": retry
@@ -41,6 +43,8 @@ async def gateway(event) -> None:
         return
     elif command == "/help":
         return await help(event)
+    #elif command == "/burnme":
+    #    return await burnme(event, user_id, chat_id, command)
     chat_id = str(event.chat_id)
 
     callingTo = indexer.get(command)

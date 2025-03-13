@@ -246,15 +246,37 @@ class IndexGroupInstances:
         except Exception as e:
             logger.error(f'Error durante la operación burn_me para id {id}: {str(e)}')
             return 0
+        
+    async def burn_user_config(self, id):
+        try:
+            logger.debug(f'Deleting user configuration: {id}')
+            cleaned_class = UserPrepare()
+            cleaned_class.daily = self.index[id].daily
+            cleaned_class.groups = self.index[id].groups
+            cleaned_class.tier = self.index[id].tier
+            cleaned_class.allowed_models = self.index[id].allowed_models
+            cleaned_class.used_tokens = self.index[id].used_tokens
+            async with self.lock:
+                self.index[id] = cleaned_class
 
-    async def burn_group(self, id):
+            return self.index[id].user_id == str()
+        except Exception as e:
+            logger.error(f'Error during burn_me operation for id {id}: {str(e)}')
+            return 0
+
+    async def burn_group(self, id, justConfig = False):
         try:
             logger.debug(f'Deleting group data: {id}')
             cleaned_class = UserPrepare()
             cleaned_class.daily = self.index[id].daily
+            cleaned_class.tier = self.index[id].tier
+            cleaned_class.allowed_models = self.index[id].allowed_models
             # fuck your burn and create unlimited quota
             # motherfucker
             cleaned_class.used_tokens = self.index[id].used_tokens
+            if justConfig:
+                cleaned_class.user_id = self.index[id].user_id
+                cleaned_class.owners = self.index[id].owners
             async with self.lock:
                 self.index[id] = cleaned_class
 
