@@ -217,6 +217,8 @@ class UserPrepare():
             return
 
         for command in daily_commands:
+            if self.daily[command]["banned_date"]:
+                continue
             await self.calculate_daily_reset(command, log_recovery=False)
         self.last_seen = datetime.now()
 
