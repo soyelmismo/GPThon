@@ -443,6 +443,6 @@ async def block_command(value, event, chat_id, user_id):
 
             upd_comms[command] = upd
 
-        return {"text": f"{'\n'.join(f'- `{key}` {check}' for key, check in upd_comms.items())}", "delete_user_message": True}
+        return {"text": "\n".join(f'- `{key}` {check}' for key, check in upd_comms.items()), "delete_user_message": True}
     except Exception as e:
         logger.error(f"{_getframe().f_code.co_name}: {str(e)}")

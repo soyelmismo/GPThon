@@ -46,18 +46,43 @@ async def check_media_type(self, event, command, can_transcribe_video) -> dict:
                         file_data["size"] = media.size # type: ignore
 
                     file_data["type"], file_data["mime"] = media.mime_type.split("/") # type: ignore
-                    for instance_type in media.attributes:
-                        if isinstance(instance_type, DocumentAttributeVideo):
-                            if (command in c.stt_commands
-                                or can_transcribe_video) and not instance_type.nosound:
-                                command = c.command_stt
-                                file_data["type"] = "audio"
-                            elif instance_type.duration < 15:
-                                file_data["type"] = "image"
-                        if isinstance(instance_type, DocumentAttributeFilename): # type: ignore
-                            file_data["name"] = instance_type.file_name # type: ignore
-                        if isinstance(instance_type, DocumentAttributeAudio):
-                            file_data["duration"] = instance_type.duration
+                    # for instance_type in media.attributes:
+                    #     if isinstance(instance_type, DocumentAttributeFilename): # type: ignore
+                    #         file_data["name"] = instance_type.file_name # type: ignore
+                    #     if isinstance(instance_type, DocumentAttributeAudio):
+                    #         file_data["duration"] = instance_type.duration
+                    #     if isinstance(instance_type, DocumentAttributeVideo):
+                    #         if (command in c.stt_commands
+                    #             or can_transcribe_video) and not instance_type.nosound:
+                    #             command = c.command_stt
+                    #             file_data["type"] = "audio"
+                    #         elif instance_type.duration < 15:
+                    #             file_data["type"] = "image"
+                    file_name = None
+                    duration = None
+                    is_video = False
+                    has_audio = False
+                    for attr in media.attributes:
+                        if isinstance(attr, DocumentAttributeFilename):
+                            file_name = attr.file_name
+                        elif isinstance(attr, DocumentAttributeAudio):
+                            duration = attr.duration
+                        elif isinstance(attr, DocumentAttributeVideo):
+                            is_video = True
+                            has_audio = not attr.nosound
+                            duration = attr.duration
+                    if file_name:
+                        file_data["name"] = file_name
+
+                    if duration is not None:
+                        file_data["duration"] = duration
+
+                    if is_video:
+                        if (command in c.stt_commands or can_transcribe_video) and has_audio and file_name != "sticker.webm":
+                            command = c.command_stt
+                            file_data["type"] = "audio"
+                        elif duration < 15:
+                            file_data["type"] = "image"
             file_data["file"] = media
 
     except Exception as e:

@@ -97,18 +97,18 @@ async def transcode_audio(file_meta):
             doc_file.write(file_meta["file"])
             doc_file.flush()
 
-            with NamedTemporaryFile(suffix=".opus", delete=False) as opus_file:
-                opus_file.close()  # Cerramos el archivo para que FFmpeg pueda acceder
+            with NamedTemporaryFile(suffix=".m4a", delete=False) as aac_file:
+                aac_file.close()  # Cerramos el archivo para que FFmpeg pueda acceder
 
                 command = [
                     "ffmpeg",
                     "-i", doc_file.name,
                     "-ar", "16000",
                     "-ac", "1",
-                    "-c:a", "libopus",
+                    "-c:a", "aac",
                     "-b:a", "16k",  # Ajuste del bitrate
                     "-y",  # Sobrescribir archivo si existe
-                    opus_file.name
+                    aac_file.name
                 ]
 
                 # Ejecutar FFmpeg de forma asíncrona
@@ -125,17 +125,17 @@ async def transcode_audio(file_meta):
                     raise Exception(f"FFmpeg error: {stderr.decode()}")
 
                 # Leer el archivo OPUS convertido
-                with open(opus_file.name, "rb") as f:
+                with open(aac_file.name, "rb") as f:
                     audio_data = BytesIO(f.read())
 
-                os.remove(opus_file.name)
+                os.remove(aac_file.name)
 
             return audio_data
 
     except Exception as e:
-        if opus_file:
+        if aac_file:
             try:
-                os.remove(opus_file.name)
+                os.remove(aac_file.name)
             except:
                 pass
         raise Exception(f'transcode_audio: {str(e)}')

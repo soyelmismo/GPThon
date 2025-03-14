@@ -249,7 +249,7 @@ class UserPrepare():
         logger.debug(f"ANTES {command}, {current_quota}, {max_quota}")
         logger.debug(f'recovery_per_hour: {recovery_per_hour}')
         logger.debug(f'recovery_amount: {recovery_amount}')
-        logger.debug(f"DESPUES {command, self.daily[command]["current"], self.daily[command]["max"]}")
+        logger.debug(f"DESPUES {command}, {self.daily[command]['current']}, {self.daily[command]['max']}")
         logger.debug(f'RECUPERADO: {current_quota - self.daily[command]["current"]}')
 
     async def check_some_limits(self, command, skip = set()):
@@ -296,7 +296,7 @@ class UserPrepare():
                     self.daily[command]["banned_date"] = None
                     return None
                 else:
-                    message = f"{conf.PAID_PLANS[self.tier]["name"]}: {self.daily[command]["current"]}/{self.daily[command]["max"]} {self.daily[command]["unit"]} reached."
+                    message = f"{conf.PAID_PLANS[self.tier]['name']}: {self.daily[command]['current']}/{self.daily[command]['max']} {self.daily[command]['unit']} reached."
                     support_message = f"🚫\n`{message}`\n🚫\n\n1. 💲👉 {conf.donate_url} 👍💲\n2. 💬 {conf.donate_contact}"
                     future_date = (raw_banned_date + timedelta(days=1) - now_Date).total_seconds()
                     hours, remainder = divmod(future_date, 3600)

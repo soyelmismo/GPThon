@@ -177,6 +177,7 @@ async def handle_api_response(
         start_time = time()
         chat_pending = True
         old_response = ""
+        sleep_time = [0.03, 0.5] if event.is_private else [0.08, 0.9]
         while chat_pending:
             try:
                 response, status = await wait_for(
@@ -191,7 +192,7 @@ async def handle_api_response(
                 end_time = time()
                 time_diff = end_time - start_time
 
-                if time_diff < 0.5 and status not in ["stop"]:
+                if time_diff < sleep_time[1] and status not in ["stop"]:
                     continue
                 elif status in ["stop"]:
                     raise StopAsyncIteration("internal status break")
@@ -199,8 +200,8 @@ async def handle_api_response(
                     if len(response) > 1 and old_response != response:
                         placeholder_msg = await process_response_chunk(event, response, done_parts, placeholder_msg, status, c_button)
                         old_response = str(response)
-                    await sleep(0.03)
-                    start_time = time()                
+                    await sleep(sleep_time[0])
+                    start_time = time()
             except StopAsyncIteration as e:
 
                 if not response:

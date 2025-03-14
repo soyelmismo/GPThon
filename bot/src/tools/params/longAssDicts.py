@@ -140,9 +140,9 @@ allowed_in_groups = ["status", "download", "answer_stt",
                      ]
 
 warnings = {
-    "/select": f'⚙️👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args['/select'])}%%',
-    command_chat: f'💬👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args[command_chat])}%%',
-    command_image: f'🎨👎🫵\n%%{"\n".join(f"'`.{arg}`'" for arg in all_args[command_image])}%%',
+    "/select": '⚙️👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args['/select'])),
+    command_chat: '💬👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args[command_chat])),
+    command_image: '🎨👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args[command_image])),
 }
 
 

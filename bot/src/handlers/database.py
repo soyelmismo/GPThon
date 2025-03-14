@@ -275,6 +275,7 @@ class IndexGroupInstances:
             # motherfucker
             cleaned_class.used_tokens = self.index[id].used_tokens
             if justConfig:
+                cleaned_class.group_mode = self.index[id].group_mode
                 cleaned_class.user_id = self.index[id].user_id
                 cleaned_class.owners = self.index[id].owners
             async with self.lock:
@@ -300,7 +301,7 @@ async def to_dict(obj):
             elif value is None:
                 data[key] = dumps({"type": "none", "value": ":)"})
             elif isinstance(value, (dict, list)):
-                data[key] = dumps({"type": type(value).__name__, "value": dumps(value)})
+                data[key] = dumps({"type": type(value).__name__, "value": dumps(value, ensure_ascii=False)})
             elif isinstance(value, datetime):
                 data[key] = dumps({"type": "datetime", "value": value.isoformat()})
             else:

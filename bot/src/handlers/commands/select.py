@@ -11,7 +11,7 @@ banned_attr = [
     "session_tokens", "raw", "forget", "download"
 ]
 
-@rate_limit_handler(3, 60)
+@rate_limit_handler(10, 60)
 async def select(event, user_id, chat_id, command) -> None:
     
     try:
