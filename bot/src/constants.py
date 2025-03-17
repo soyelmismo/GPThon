@@ -28,9 +28,9 @@ FUNCNOARG = "Search arguments not found. Ask the user what he want to search."
 tools_loaded = []
 
 colors = {
-    'reset': '\033[0m',        # Reset (elimina los colores)
-    'bold': '\033[1m',         # Texto en negrita
-    'underline': '\033[4m',    # Texto subrayado
+    'r': '\033[0m',        # Reset (elimina los colores)
+    'b': '\033[1m',         # Texto en negrita
+    'u': '\033[4m',    # Texto subrayado
     'black': '\033[30m',       # Negro
     'red': '\033[31m',         # Rojo
     'green': '\033[32m',       # Verde
@@ -66,3 +66,8 @@ colors = {
     'bg_bright_cyan': '\033[106m',     # Fondo Cyan claro
     'bg_bright_white': '\033[107m'     # Fondo Blanco claro
 }
+
+print("\n\nCOLORS!\n")
+for color in colors.keys():
+    print(f"{colors[color]}{color} ◀ ◁ ◂ ◃ ◄ ◅ ◆ ◇ ◈ ◉ ◊ ○ ◌ ◍ ◎ ●{colors["r"]}")
+print("\n\n")

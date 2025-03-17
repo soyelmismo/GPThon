@@ -102,8 +102,12 @@ async def manage_stream_response(thisShit, res_text, response):
                 yield chunk.choices[0].delta.tool_calls, "stall"
 
             logger.debug(f'Chunk: {chunk} <---- Chunk')
-            res_text += getattr(chunk.choices[0].delta, 'content', "") or ""
-            fr = str(chunk.choices[0].finish_reason).lower()
+            if chunk.choices:
+                res_text += getattr(chunk.choices[0].delta, 'content', "") or ""
+                fr = str(chunk.choices[0].finish_reason).lower()
+            else: 
+                res_text += ""
+                fr = "continue"
             logger.debug(fr)
             if fr in ["stop", "length"]:
                 if not res_text:
@@ -137,9 +141,10 @@ async def request_chat_completion(thisShit, model, user_id, command, quick):
         logger.debug("Generating response...")
         temp_apis = await shuffle_apis(user_id, payload["model"], command)
         for api in temp_apis:
-            if api == "cerebras":
+            if api in ["cerebras", "google"]:
                 payload.pop("frequency_penalty")
                 payload.pop("presence_penalty")
+                if api == "google": payload.pop("seed")
             try:
                 logger.debug(f"Joining chat completion with {api}")
                 res_text = ""

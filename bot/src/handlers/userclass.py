@@ -216,6 +216,9 @@ class UserPrepare():
         if skip_quotaCheck:
             return
 
+        if not self.daily:
+            self.daily = self.manage_daily_quotas()
+            return
         for command in daily_commands:
             if self.daily[command]["banned_date"]:
                 continue
@@ -258,7 +261,7 @@ class UserPrepare():
         if self.tier == "tier_god":
             return None
 
-        if command == "/embed": command = conf.command_chat
+        if command in ["/embed", "/rol", "/retry"]: command = conf.command_chat
 
         
         if "1" not in skip:

@@ -177,7 +177,7 @@ async def handle_api_response(
         start_time = time()
         chat_pending = True
         old_response = ""
-        sleep_time = [0.03, 0.5] if event.is_private else [0.08, 0.9]
+        sleep_time = [0.08, 1] if event.is_private else [0.16, 1.5]
         while chat_pending:
             try:
                 response, status = await wait_for(
