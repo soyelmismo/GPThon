@@ -125,12 +125,13 @@ async def process_response_chunk(event, response, done_parts, placeholder_msg, s
 
     async def editor_msg(message_text, wait_msg, sub_status):
         try:
-            message_text = sub(
-                r'<think>(.*?)</think>',
-                lambda match: f'%%\n<think>{match.group(1)}</think>%%' if match.group(1).strip() else '',
-                message_text,
-                flags=DOTALL
-                ).strip()
+            if "<think>" in message_text or "</think>" in message_text:
+                message_text = sub(
+                    r'<think>(.*?)</think>',
+                    lambda match: f'%%\n<think>{match.group(1)}</think>%%' if match.group(1).strip() else '',
+                    message_text,
+                    flags=DOTALL
+                    ).strip()
             if sub_status in ["stop", "length", "error"]:
                 await edit_msg(event, wait_msg, text = message_text)
             else:
@@ -217,8 +218,7 @@ async def handle_api_response(
                     )
                     if status not in ["error"]:
                         if response.startswith("<think>") and "</think>" in response:
-                            response = sub(r'<think>.*?</think>', '', response, flags=DOTALL).strip()
-                            response = response.strip()
+                            response = sub(r'<think>.*?</think>', '', response, flags=DOTALL)
                         self.conversation.append({"role": "assistant", "content": response})
                 chat_pending = False
             except Exception as e:

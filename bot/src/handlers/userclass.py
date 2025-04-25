@@ -308,12 +308,10 @@ class UserPrepare():
                     minutes, seconds = divmod(remainder, 60)
                     support_message += f'\n\nOr wait `{int(hours):02}h {int(minutes):02}m {int(seconds):02}s`'
                     return support_message
-                
             if self.daily[command]["current"] > 0:
                 await self.calculate_daily_reset(command)
 
-            daily = self.daily.get(command, False)
-
+            daily = dict(self.daily.get(command, {}))
 
             if daily["custom_max"]:
                 daily["max"] += daily["custom_max"]
