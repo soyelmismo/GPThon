@@ -290,7 +290,7 @@ class UserPrepare():
 
             now_Date = datetime.now()
             iso_banned_date = self.daily[command].get("banned_date")
-            if not iso_banned_date and self.daily[command]["current"] > self.daily[command]["max"]:
+            if not iso_banned_date and self.daily[command]["current"] > (self.daily[command]["max"] + self.daily[command]["custom_max"]):
                 iso_banned_date = now_Date.isoformat()
                 self.daily[command]["banned_date"] = iso_banned_date
 
