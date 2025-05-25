@@ -274,7 +274,10 @@ class UserPrepare():
                     and self.chat_model not in set(list(self.allowed_models) + conf.PAID_PLANS[self.tier]["allowed_models"])
                 )
                 ):
+                old_model = str(self.chat_model)
                 self.chat_model = co.session_default_chat_model
+                notification = f"⚠️🤖❌`{old_model}`. ➡️🏠 `{self.chat_model}`"
+                return (notification, "continue")
 
         if "2" not in skip:
             if not self.daily: self.daily = self.manage_daily_quotas()
@@ -329,7 +332,10 @@ class UserPrepare():
         chat_id = str(event.chat_id)
         warning = await self.check_some_limits(command)
         if warning:
-            return await event.reply(warning)
+            is_continue = isinstance(warning, tuple) and warning[1] == "continue"
+            warned = await event.reply(warning[0] if is_continue else warning)
+            if not is_continue:
+                return warned
         self.last_seen = datetime.now()
         logger.debug(f'GRUPO {self.group_mode}')
 
