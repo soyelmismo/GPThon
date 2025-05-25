@@ -60,10 +60,10 @@ class UserPrepare():
         self.max_tokens: int = 4000
         # self.output_tokens: int = None
 
-        self.temperature: float = 0.5
-        self.top_p: float = 1.0
+        self.temperature: float = 0.8
+        self.top_p: float = 0.95
         self.frequency_penalty: float = 0.0
-        self.presence_penalty: float = 0.0
+        self.presence_penalty: float = 0.3
         self.seed: int | None = None
 
         self.group_mode: bool = False
