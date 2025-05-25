@@ -152,7 +152,7 @@ async def p_floats(thisShit, arg, value):
 async def max_value_param(thisShit, arg, value):
     try:
         if arg in ["temperature"]:
-            pmin, pmax = 0, 1.5
+            pmin, pmax = 0, 1
         elif arg in ["timeout"]:
             pmin, pmax = 3, 600
         elif arg in ["top_p"]:
@@ -167,6 +167,7 @@ async def max_value_param(thisShit, arg, value):
             #if value < 1024: # Commented cuz i don't remember why is it here... Maybe this is the beginning of documentation in this project (maybe, idk, probably)
             #    thisShit.summarize = False
 
+            #update: i think there will not be documentation. and this comment up here is probably cuz summarization with low token context is a piece of shit
         return value
     except Exception as e:
         e = f"{_getframe().f_code.co_name}: {str(e)}"
