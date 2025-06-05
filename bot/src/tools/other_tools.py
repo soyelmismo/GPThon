@@ -67,7 +67,7 @@ async def get_conversation(thisShit, user_id = None, summary = None):
             thisShit.conversation = [{"role": "system", "content": bot_prompts.get("summarizer", "").replace("{input}", t_convo)}]
             thisShit.temperature = 1.28
             import bot.src.tools.api_utils.apis_frontend as oai
-            summarized_text = await oai.quick_chat_completion(thisShit, user_id=user_id, model="llama3-8b-8192")
+            summarized_text = await oai.quick_chat_completion(thisShit, user_id=user_id, model="llama-3.1-8b-instant")
             if not triggered_threshhold:
                 summarized_text = f'{previous_context_backup}\n{summarized_text}'.strip()
             summarized_dict = {"role": "system", "content": f'<context>\n\n{summarized_text}\n\n</context>'}
