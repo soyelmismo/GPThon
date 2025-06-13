@@ -53,7 +53,7 @@ class UserPrepare():
         self.tier: str = "tier_0"
         self.used_tokens: int = 0
 
-        self.transcribe: bool = True
+        self.transcribe: bool = False
         self.answer_stt: bool = True
         self.stt_language = None
 

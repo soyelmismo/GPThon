@@ -78,7 +78,7 @@ async def update_total_reqs(type, api, model, user_id, status, response = None, 
         api_reqs[model][api][1] += 1
 
         await conf.send_logs_to_channel((
-            f"Error message: {error}\n\n"
+            f"{error}\n\n"
             f"Response: {str(response)}\n\n"
             f"API: {api}\n"
             f"Model: {model}\n"
