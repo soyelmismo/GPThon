@@ -35,7 +35,7 @@ async def generate_image(thisShit, model, user_id, command):
                             prompt=temp_prompt,
                             size=thisShit.ratio,
                             n=thisShit.photos,
-                            #quality="hd",
+                            quality="standard",
                             timeout=60
                         )
                     except CancelledError as e:

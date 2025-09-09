@@ -1,0 +1,5 @@
+(?d)__py*e__/
+.session
+.venv/
+venv/
+:)
