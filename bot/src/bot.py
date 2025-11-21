@@ -13,6 +13,7 @@ except ImportError:
     logger.info("Any model can be set.")
 
 from re import escape
+import asyncio
 from asyncio import sleep
 from telethon import TelegramClient
 from telethon.functions import bots
@@ -105,9 +106,12 @@ async def post_init():
 def start_bot():
     """Start the bot."""
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     conf.bot = TelegramClient(
         conf.session_name, conf.api_id,
-        conf.api_hash, connection_retries=-1
+        conf.api_hash, connection_retries=-1,
+        loop=loop
     ).start(bot_token=conf.bot_token)
     conf.bot.parse_mode = 'md'
     
