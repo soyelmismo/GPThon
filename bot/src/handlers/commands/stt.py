@@ -56,8 +56,8 @@ async def do_stt(thisShit, event, file_meta, user_id, placeholder_msg, command, 
             else:
                 await edit_msg(event, placeholder_msg, text = f'🎤 {transcribed}')
 
-            if thisShit.answer_stt:
-                return transcribed
+            if transcribed and thisShit.answer_stt:
+                return str(transcribed)
             return True
     except Exception as e:
         logger.error(f"Error in do_stt: {str(e)}")

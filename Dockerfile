@@ -11,11 +11,16 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     python3-pip \
     python3-numpy \
+    build-essential \
+    gcc \
+    g++ \
     ffmpeg \
     && \
     pip3 install --no-cache-dir -r requirements.txt \
     && \
-    apt-get remove -y \
+    apt-get remove -y build-essential gcc g++ \
+    && \
+    apt-get autoremove -y \
     && \
     rm -rf /var/lib/apt/lists/*
 CMD ["python", "-m", "bot"]

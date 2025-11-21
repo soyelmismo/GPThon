@@ -6,6 +6,6 @@ https://github.com/soyelmismo/GPThon/tree/openai
 
 if __name__ == '__main__':
     print(SPRITE)
-    logger.info("🤖 0.2")
+    logger.info("🤖 0.2.1")
     
     start_bot()
