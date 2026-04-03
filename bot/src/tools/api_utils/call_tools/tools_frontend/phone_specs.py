@@ -13,7 +13,7 @@ async def search_smartphone_specs(model: str, **kwargs) -> str:
     Inform the user in a detailed way the features of the device.
 
     Args:
-        model (str): only the device model, without extra text.
+        model (str): specify here the device model.
 
     Returns:
         str: all the device specifications to be tell to the user
