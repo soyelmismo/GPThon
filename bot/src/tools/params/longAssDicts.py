@@ -23,7 +23,7 @@ all_args = {
         "streaming", "chat_model", "img_model", "memory", "sysprompt", "ratio",
         "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens",
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
-        "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
+        "rol", "vision_model", "photos", "style_name", "improve_prompt",
         "stt_language", "embedding_model", "summarize", "transcribe", "tool_call",
         "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget",
         "sudo", "params_warning", "block_command" # "output_tokens"
@@ -33,9 +33,19 @@ all_args = {
         "streaming", "memory", "randomizer", "answer_stt", "chat_model", "img_model",
         "sysprompt", "temperature", "top_p", "frequency_penalty", "presence_penalty",
         "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
-        "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
+        "summarize", "rol", "vision_model", "stt_language", "embedding_model",
         "transcribe", "tool_call", "to_tts", "tts_voice", "authorize",
         "deauthorize", "timeout", "sudo", "params_warning", "block_command" # "output_tokens"
+        ],
+
+
+    "/status": [
+        "streaming", "memory", "randomizer", "answer_stt", "chat_model", "img_model",
+        "sysprompt", "temperature", "top_p", "frequency_penalty", "presence_penalty",
+        "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
+        "summarize", "rol", "vision_model", "stt_language", "embedding_model",
+        "transcribe", "tool_call", "to_tts", "tts_voice", "authorize",
+        "deauthorize", "timeout", "sudo", "params_warning", "block_command"
         ],
 
 
@@ -48,7 +58,7 @@ all_args = {
 
 
     command_image: [
-        "img_model", "photos", "style_name", "improve_prompt", "improve_model", "ratio", "raw"
+        "img_model", "photos", "style_name", "improve_prompt", "ratio", "raw"
         ],
 
 
@@ -95,7 +105,6 @@ shortened_args = {
     "i": "improve_prompt",
     "ip": "improve_prompt",
     "improve": "improve_prompt",
-    "tim": "improve_model",
     "lang": "stt_language",
     "l": "stt_language",
     "slang": "stt_language",
@@ -140,6 +149,7 @@ allowed_in_groups = ["status", "download", "answer_stt",
 
 warnings = {
     "/select": '⚙️👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args['/select'])),
+    "/status": '⚙️👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args['/status'])),
     command_chat: '💬👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args[command_chat])),
     command_image: '🎨👎🫵\n%%{}%%'.format("\n".join(f"'`.{arg}`'" for arg in all_args[command_image])),
 }

@@ -44,7 +44,6 @@ class UserPrepare():
 
         self.chat_model: str = co.session_default_chat_model
         self.img_model: str = co.session_default_img_model
-        self.improve_model: str = conf.text_improve_model
         self.vision_model: str = conf.default_vision_model
         self.embedding_model: str = conf.default_embedding_model
 

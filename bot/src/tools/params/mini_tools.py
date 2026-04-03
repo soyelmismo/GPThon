@@ -128,7 +128,7 @@ async def p_improve(thisShit, user_id, value):
             {"role": "system", "content": conf.bot_prompts["img_improve"]},
             {"role": "user", "content": promptr}
             ]
-        improved_prompt = await oai.quick_chat_completion(thisShit, user_id, thisShit.improve_model)
+        improved_prompt = await oai.quick_chat_completion(thisShit, user_id, thisShit.chat_model)
 
         if improved_prompt == "Cancelled":
             return [None]
@@ -193,7 +193,7 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
         logger.error(e)
         raise Exception(e)
 
-model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tts_voice"]
+model_types = ["chat_model", "vision_model", "embedding_model", "tts_voice"]
 
 forbidden = {"text": "🚫🔞🚫"}
 

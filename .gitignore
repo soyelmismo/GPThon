@@ -186,3 +186,4 @@ bot/src/handlers/commands/ask_ref.py.old
 bot/resources/vip_plans.json
 bot/resources/apis_ratelimits.json
 renames.sh
+bin/

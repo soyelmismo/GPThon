@@ -25,6 +25,7 @@ indexer = {
     "/burnme": burnme,
     "/reset": reset_conversation,
     "/select": select,
+    "/status": select,
     "/retry": retry
 }
 

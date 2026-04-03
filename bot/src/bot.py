@@ -60,6 +60,7 @@ async def register_events():
 
 
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/select(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
+    conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/status(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/retry(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/reset(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
     conf.bot.add_event_handler(gateway, NewMessage(pattern = '^/burnme(@' + escape(conf.bot_data.username) + r')?(\s|$)')) # type: ignore
@@ -70,6 +71,7 @@ async def register_events():
 
     commands_list.extend([
             BotCommand("select", "🖕"),
+            BotCommand("status", "📊"),
             #BotCommand("burnme", "🔥"),
             BotCommand("retry", "🔄"),
             BotCommand("reset", "⏮️"),

@@ -75,7 +75,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 if thisShit.warning:
                     break
 
-            case "chat_model" | "img_model" | "improve_model" | "vision_model" | "embedding_model" | "tts_voice":
+            case "chat_model" | "img_model" | "vision_model" | "embedding_model" | "tts_voice":
                 await p_models(thisShit, chat_id, user_id, arg, value)
                 checkIt = getattr(thisShit, arg)
                 if isinstance(checkIt, dict):
