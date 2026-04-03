@@ -67,7 +67,7 @@ async def extract_arguments(cls, event, prompt, command, user_id, chat_id = None
                 await thisShit.set_roleplaying(event, user_id)
                 value = "🔞🔥"
             case "sysprompt":
-                value = await p_sysprompt(cls, thisShit, value[:1024], event, user_id, command)
+                value = await p_sysprompt(cls, thisShit, value[:2500], event, user_id, command)
                 if thisShit.warning:
                     break
             case "streaming" | "debug" | "memory" | "randomizer" | "answer_stt" | "summarize" | "transcribe" | "tool_call" | "to_tts" | "raw" | "forget" | "params_warning":
