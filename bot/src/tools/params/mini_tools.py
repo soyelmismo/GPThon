@@ -193,7 +193,7 @@ async def p_auto_bool(thisShit, arg, value, just_return = None):
         logger.error(e)
         raise Exception(e)
 
-model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tool_model", "tts_voice"]
+model_types = ["chat_model", "vision_model", "improve_model", "embedding_model", "tts_voice"]
 
 forbidden = {"text": "🚫🔞🚫"}
 

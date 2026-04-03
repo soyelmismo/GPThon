@@ -46,7 +46,6 @@ class UserPrepare():
         self.img_model: str = co.session_default_img_model
         self.improve_model: str = conf.text_improve_model
         self.vision_model: str = conf.default_vision_model
-        self.tool_model: str = conf.default_tool_model
         self.embedding_model: str = conf.default_embedding_model
 
         self.memory: bool = True
@@ -133,7 +132,6 @@ class UserPrepare():
         blist = status_blacklist.copy()
         blist.extend(["chat_model"] * self.roleplaying)
         blist.extend(["group_mode", "random_names"] * (not self.group_mode))
-        blist.extend(["tool_model"] * (not self.tool_call))
         blist.extend(["blocked_commands"] * (not self.blocked_commands))
 
         for key, value in vars(self).items():

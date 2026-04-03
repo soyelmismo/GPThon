@@ -24,7 +24,7 @@ all_args = {
         "temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens",
         "status", "randomizer", "seed", "download", "answer_stt", "group_mode", "random_names",
         "rol", "improve_model", "vision_model", "photos", "style_name", "improve_prompt", "improve_model",
-        "stt_language", "embedding_model", "summarize", "transcribe", "tool_call", "tool_model",
+        "stt_language", "embedding_model", "summarize", "transcribe", "tool_call",
         "to_tts", "tts_voice", "debug", "raw", "authorize", "deauthorize", "timeout", "forget",
         "sudo", "params_warning", "block_command" # "output_tokens"
         ],
@@ -34,7 +34,7 @@ all_args = {
         "sysprompt", "temperature", "top_p", "frequency_penalty", "presence_penalty",
         "max_tokens", "debug", "status", "seed", "download", "group_mode", "random_names",
         "summarize", "rol", "improve_model", "vision_model", "stt_language", "embedding_model",
-        "transcribe", "tool_call", "tool_model", "to_tts", "tts_voice", "authorize",
+        "transcribe", "tool_call", "to_tts", "tts_voice", "authorize",
         "deauthorize", "timeout", "sudo", "params_warning", "block_command" # "output_tokens"
         ],
 
@@ -42,7 +42,7 @@ all_args = {
     command_chat: [
         "streaming", "randomizer",
         "chat_model", "vision_model", "temperature", "debug", "top_p", "frequency_penalty", "presence_penalty",
-        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "tool_model", "timeout",
+        "max_tokens", "seed", "summarize", "tool_call", "to_tts", "tts_voice", "timeout",
         "memory", "download", "forget", "sysprompt", # "output_tokens"
         ],
 
@@ -108,7 +108,6 @@ shortened_args = {
     "tr": "transcribe",
     "tc": "tool_call",
     "tool": "tool_call",
-    "tm": "tool_model",
     "voice": "tts_voice",
     "ttts": "to_tts",
     "d": "debug",

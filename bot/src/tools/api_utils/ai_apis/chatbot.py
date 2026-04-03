@@ -235,7 +235,6 @@ async def configure_payload(thisShit, model, command, quick):
         if not quick and thisShit.tool_call and command == command_chat:
             payload["tools"] = functions_data
             payload["tool_choice"] = "auto"
-            payload["model"] = thisShit.tool_model
 
         if not thisShit.randomizer:
             logger.debug("Not using randomizer")
