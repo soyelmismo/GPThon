@@ -87,8 +87,8 @@ async def check_media_type(self, event, command, can_transcribe_video) -> dict:
 
     except Exception as e:
         logger.error(f"Error in check_media_type: {str(e)}")
-    finally:
-        return command, file_data
+
+    return command, file_data
 
 async def is_bot_mentioned(event):
     command = ""  # Inicializar para evitar NameError
