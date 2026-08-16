@@ -187,3 +187,4 @@ bot/resources/vip_plans.json
 bot/resources/apis_ratelimits.json
 renames.sh
 bin/
+valkey/
