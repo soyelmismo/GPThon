@@ -163,7 +163,7 @@ cython_debug/
 
 bot/resources/apis/apis_normal.json
 bot/resources/apis/apis_roleplay.json
-docker-compose.yml
+docker-compose*.yml
 
 .vscode/
 
